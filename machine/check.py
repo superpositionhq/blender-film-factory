@@ -113,8 +113,12 @@ def main():
         say('FAIL', 'hook interpreter', f'{python} is gone (a Python update?): run machine/bootstrap.py')
 
     # skills
-    targets = ([('Claude Code', Path(a.claude_home) / 'skills')] if 'claude' in agents else []) + \
-              ([('Codex', Path(a.agents_skills))] if 'codex' in agents else [])
+    targets = ([('Claude Code', root / '.claude' / 'skills')] if 'claude' in agents else []) + \
+              ([('Codex', root / '.agents' / 'skills')] if 'codex' in agents else [])
+    for label, personal in (('Claude Code', Path(a.claude_home) / 'skills'), ('Codex', Path(a.agents_skills))):
+        left = sorted(d.name for d in personal.glob('blender-film-*')) if personal.is_dir() else []
+        if left:
+            say('FAIL', f'{label} personal skills', f'{", ".join(left)} in {personal}: the film skills are project skills of the root; run machine/bootstrap.py')
     for label, folder in targets:
         for s in sorted(d for d in (REPO / 'skills').iterdir() if (d / 'SKILL.md').is_file()):
             ok = same(s / 'SKILL.md', folder / s.name / 'SKILL.md')

@@ -20,8 +20,8 @@ A film has an input and an output, fixed when it is created:
 | `script`: a written script | `greybox`: a grey-box video (mannequins and blocks: staging, motion, camera, cuts) |
 | `storyboard`: a script with storyboard pictures | `final`: a fully rendered film, which also delivers its grey-box video (`out/greybox.mp4`) |
 
-Skills (one source, [skills/](skills/); `machine/bootstrap.py` copies them to `~/.claude/skills/` for Claude Code
-and `~/.agents/skills/` for Codex; read the `SKILL.md` named here before the work it covers, whichever agent you
+Skills (one source, [skills/](skills/); `machine/bootstrap.py` copies them into the film root as project skills, `<root>/.claude/skills/`
+for Claude Code and `<root>/.agents/skills/` for Codex, so only sessions started in the root see them; read the `SKILL.md` named here before the work it covers, whichever agent you
 are). They carry a `blender-film-` prefix so they install next to another factory's skills:
 
 - **blender-film-commit-always** ([SKILL.md](skills/blender-film-commit-always/SKILL.md)): every session.
@@ -90,7 +90,7 @@ Both agents run the same skills, the same recording hooks and the same workflow;
 | | Claude Code | Codex CLI |
 |---|---|---|
 | start | `claude` in `<root>` (reads `<root>/CLAUDE.md`) | `codex` in `<root>` (reads `<root>/AGENTS.md`) |
-| skills | `~/.claude/skills/blender-film-*` (also offered by name) | `~/.agents/skills/blender-film-*` (`$<name>` or `/skills`; also offered by description) |
+| skills | `<root>/.claude/skills/blender-film-*` (also offered by name) | `<root>/.agents/skills/blender-film-*` (`$<name>` or `/skills`; also offered by description) |
 | recording hooks | `~/.claude/settings.json`: PostToolUse, PostToolUseFailure, Stop, UserPromptSubmit, SessionEnd | `~/.codex/hooks.json`: PostToolUse, Stop, UserPromptSubmit, SessionEnd (trusted in `config.toml`; `/hooks` shows them) |
 | file edits in `actions.jsonl` | `Write` / `Edit` rows | `apply_patch` rows (the patch text) |
 | permissions | as set in Claude Code (asks before commands by default) | the sandbox must let Blender use the GPU and write its caches, and allow `git push` / `gh`: `codex -s danger-full-access` where the default sandbox blocks them |

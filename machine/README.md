@@ -67,7 +67,7 @@ Idempotent; run it again after every pull. It prints one line per item (`ok`, `a
    `.bak-<time>` is made first, other settings and other tools' hooks stay as they are, and a handler of ours that
    is already there is replaced where it stands. It says what the hooks do and asks before wiring them; `--yes`
    skips the question, and a run that cannot ask (no terminal) leaves them out with a warning;
-4. the skills: every `skills/blender-film-*` copied to `~/.claude/skills/` and `~/.agents/skills/` (copies, not links: a
+4. the skills: every `skills/blender-film-*` copied to the root's project skills, `<root>/.claude/skills/` and `<root>/.agents/skills/` (copies, not links: a
    replaced one is moved to `_backup/<time>/` there; other skills are never touched);
 5. `<root>/CLAUDE.md` (imports this repo's `CLAUDE.md`) and `<root>/AGENTS.md` (names this repo's `AGENTS.md`); an
    existing file gets the line appended, never rewritten;

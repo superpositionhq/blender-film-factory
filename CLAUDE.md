@@ -4,5 +4,5 @@ The instructions for every agent (Claude Code and Codex alike) live in [AGENTS.m
 
 @AGENTS.md
 
-Claude Code specifics: the skills are installed to `~/.claude/skills/blender-film-*` (source: [skills/](skills/)), the
+Claude Code specifics: the skills are installed to `<root>/.claude/skills/blender-film-*` (source: [skills/](skills/)), the
 recording hooks are wired into `~/.claude/settings.json` next to any other hooks (`machine/bootstrap.py`).

@@ -12,8 +12,9 @@ What it does, saying for each item ok / added / changed / warn:
      settings (Claude Code: <claude home>/settings.json; Codex: <codex home>/hooks.json plus the trust entries in
      config.toml; a backup .bak-<time> first; other settings and hooks are kept). It asks first; --yes installs
      them without asking, and a run that cannot ask leaves them out;
-  4. the repo's skills (skills/, all blender-film-*) into each agent's personal skills folder (<claude home>/skills,
-     ~/.agents/skills); other skill folders are never touched;
+  4. the repo's skills (skills/, all blender-film-*) into the film root as PROJECT skills (<root>/.claude/skills
+     for Claude Code, <root>/.agents/skills for Codex), so only sessions started in the root see them; copies an
+     earlier bootstrap left in an agent's personal skills folder are moved out to its _backup folder;
   5. the root instructions: <root>/CLAUDE.md importing this repo's CLAUDE.md, <root>/AGENTS.md naming this repo's
      AGENTS.md (sessions start in the root);
   6. Blender 5.2 (found in the usual places or --blender; its path goes into the config) and ffmpeg / ffprobe;
@@ -226,8 +227,15 @@ def main():
 
     # --- 4. skills: one source, copied to where each agent looks for personal skills (copies, not links: links need
     # Developer Mode on Windows) ---------------------------------------------------------------------------------------
-    targets = ([('Claude Code', claude_home / 'skills')] if 'claude' in agents else []) + \
-              ([('Codex', Path(a.agents_skills).absolute())] if 'codex' in agents else [])
+    # Project skills, in the film root: sessions started there see them and no other session on the account does.
+    targets = ([('Claude Code', root / '.claude' / 'skills')] if 'claude' in agents else []) + \
+              ([('Codex', root / '.agents' / 'skills')] if 'codex' in agents else [])
+    for label, personal in (('Claude Code', claude_home / 'skills'), ('Codex', Path(a.agents_skills).absolute())):
+        for old in sorted(personal.glob('blender-film-*')) if personal.is_dir() else []:
+            dst = personal / '_backup' / STAMP / old.name
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(old), str(dst))
+            note('changed', f'{label} personal skill {old.name}', f'moved out to {dst} (skills are project skills of the root now)')
     skills = sorted(d for d in (REPO / 'skills').iterdir() if (d / 'SKILL.md').is_file())
     for label, folder in targets:
         for s in skills:
@@ -244,7 +252,7 @@ def main():
         line = f'Before anything else, read {REPO / "AGENTS.md"} and follow it (rules, skills, priorities).'
         root_file(root / 'AGENTS.md', line, '# FilmWork root\n\nEvery session in this folder follows the '
                   f'blender-film-factory rules and skills.\n{line}\nThe skills it names ({names}) are installed in '
-                  f'{Path(a.agents_skills).absolute()}.\n')
+                  f'{root / ".agents" / "skills"}.\n')
 
     # --- 6. Blender and ffmpeg ------------------------------------------------------------------------------------------
     exe = a.blender or bffroot.blender()
