@@ -1,0 +1,10 @@
+{
+  "schema": "film/v1",
+  "slug": "__SLUG__",
+  "title": "__TITLE__",
+  "description": "__DESCRIPTION__",
+  "input": "__INPUT__",
+  "output": "__OUTPUT__",
+  "format": {"width": __WIDTH__, "height": __HEIGHT__, "fps": 24, "min_seconds": __MIN_S__, "max_seconds": __MAX_S__, "min_shots": __MIN_SHOTS__},
+  "blender": "5.2"
+}
