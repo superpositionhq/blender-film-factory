@@ -14,7 +14,7 @@ A Mac or a Windows PC goes from nothing to making films in a few minutes once Bl
 | A coding agent: Claude Code, or OpenAI Codex CLI, signed in | the agent that makes the film |
 
 Blender runs in the background and never opens a window. EEVEE needs a GPU (any Apple Silicon Mac; a Windows PC with
-a discrete or recent integrated GPU). Without one, films render with Cycles on the CPU, far slower: use it for previs
+a discrete or recent integrated GPU). Without one, films render with Cycles on the CPU, far slower: use it for greybox
 only.
 
 ## Set up

@@ -2,15 +2,16 @@
 """Create a new film repo from templates/film (Blender 5.2, built headless, one recorded step at a time).
 
   python <root>/blender-film-factory/templates/new-film.py --slug <slug> --path <root>/films/<slug> \
-      --title "<Title>" --description "<one line>" --input text|video --output final|previs
+      --title "<Title>" --description "<one line>" --input script|storyboard --output final|greybox
       [--width N --height N --min-seconds N --max-seconds N --min-shots N] [--id-prefix <letters>]
       [--reason "<why>"] [--org <github org>] [--no-remote]
   (<root> written out, e.g. /Users/<you>/FilmWork or C:\\Users\\<you>\\FilmWork)
 
---input says what the film is made from: `text` (a written prompt) or `video` (a reference clip to recreate).
+--input says what the film is made from: `script` (a written script) or `storyboard` (a script with storyboard
+pictures).
 --output says what is delivered: `final` (a finished picture: materials, lighting, grade; 1920x1080, 20-45 s, at
-least 5 shots unless the brief says otherwise) or `previs` (a white-model previsualisation with mannequins and
-blocks; 1280x720, 6-60 s). It writes the skeleton (film.json, Brief.md, Docs/Treatment.md, build/kit.py and
+least 5 shots unless the brief says otherwise) or `greybox` (a grey-box video: mannequins and
+blocks, staging, motion, camera and cuts only; 1280x720, 6-60 s). It writes the skeleton (film.json, Brief.md, Docs/Treatment.md, build/kit.py and
 build/mannequin.py, an empty shot list, root-anchored .gitignore, LFS for pictures, videos and .blend), the first
 workflow.jsonl row (op film.create), git on `main` with the post-commit hook (the commit recorder), the first commit,
 and the private GitHub repo <org>/film-<slug> (not pushed; <org> = --org, else the config's github_org; --no-remote
@@ -52,8 +53,8 @@ def main():
     p.add_argument('--path', help='required: the absolute <root>/films/<slug>, written out')
     p.add_argument('--title', help='default from the slug: lantern-yard -> Lantern Yard')
     p.add_argument('--description', default='')
-    p.add_argument('--input', choices=['text', 'video'], required=True)
-    p.add_argument('--output', choices=['final', 'previs'], required=True)
+    p.add_argument('--input', choices=['script', 'storyboard'], required=True)
+    p.add_argument('--output', choices=['final', 'greybox'], required=True)
     for k in ('width', 'height', 'min-seconds', 'max-seconds', 'min-shots'):
         p.add_argument('--' + k, type=int)
     p.add_argument('--id-prefix', help="workflow row id prefix; default the slug's initials (ly) or its first two letters")

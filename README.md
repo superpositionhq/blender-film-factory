@@ -1,18 +1,17 @@
 # blender-film-factory
 
-Film-**creation** data: how a short film gets made in Blender, step by step, with the finished film as ground truth.
+Film-**making trajectories**: how a short film gets made in Blender from a script, step by step, as training data.
 
 Coding-agent sessions (Claude Code or OpenAI Codex CLI) each make one short film in Blender 5.2, headless and in
-code, in its own git repo, and the creation is recorded as it happens: one step script, one picture and one commit
-per visible change, the scene state after every step, a `workflow.jsonl` row per operation with its reason, and
-every tool call, prompt and reply of the session. Later tasks are cut from that real history.
+code, in its own git repo. What is recorded as it happens: the model's note before each step (what the picture
+shows, what comes next and why), one step script, one picture and one commit per visible change, the scene state
+after every step, and every tool call with its whole result. `tools/trajectory.py` exports that as one ordered
+trajectory per film; a person reviews the film and its record before it is used.
 
-A film is one of four kinds:
-
-| | from a written prompt (`text`) | from a reference clip (`video`) |
-|---|---|---|
-| a finished picture (`final`) | models, materials, light, grade | the clip recreated shot for shot, finished |
-| a previsualisation (`previs`) | mannequins and blocks: staging, motion, camera, cuts | the clip recreated shot for shot as a white model |
+| Input | Output |
+|---|---|
+| `script`: a written script | `greybox`: a grey-box video (mannequins and blocks: staging, motion, camera, cuts) |
+| `storyboard`: a script with storyboard pictures | `final`: a fully rendered film, which also delivers its grey-box video |
 
 ## Getting started
 
@@ -33,38 +32,41 @@ On a Mac or a Windows PC with git, Git LFS, Python 3.9+, Blender 5.2 LTS, ffmpeg
 
 ## How a film goes from input to release
 
-1. **New film**: `templates/new-film.py --input text|video --output final|previs` creates `<BFF_ROOT>/films/<slug>`:
+1. **New film**: `templates/new-film.py --input script|storyboard --output greybox|final` creates `<BFF_ROOT>/films/<slug>`:
    `film.json`, the brief and treatment pages, the step kit (`build/kit.py`) and the mannequin kit
    (`build/mannequin.py`), the first `workflow.jsonl` row, the post-commit hook, the first commit, a private GitHub
    repo (not pushed).
-2. **Brief** (and, for a clip, `tools/reference.py` and the breakdown), then the **treatment** with the object list
-   and the shot list.
+2. **Brief** (the script, word for word; storyboard pictures through `tools/storyboard.py`), the **breakdown** of
+   the script into cast, places and timed beats, then the **treatment** with the object list and the shot list.
 3. **Steps**: `tools/step.py <film> "<what changes on screen>" build/NNN_name.py --op .. --target .. --reason ..`
    runs one script in headless Blender and records it: `steps/NNNN-name/` (script, scene state, picture), the row,
    the commit. The session looks at the picture before the next step.
-4. **Order**: blockout, cameras bound to markers, blocked animation, the blockout animatic and its fixes; then
-   models, materials, lighting, animation and camera polish, render settings and grade (previs stops at mannequins,
-   blocks and polish); critique rounds on rendered frames.
+4. **Order**: blockout, cameras bound to markers, blocked animation, the grey-box video and its fixes; a greybox
+   film then polishes and stops; a final film goes on to models, materials, lighting, polish, render settings and
+   grade; critique rounds on rendered frames against the script.
 5. **Checks**: `tools/shots.py` measures every shot and checks `shotlist.json`; `tools/replay.py` rebuilds the scene
    from an empty file and compares; `tools/validate-film.py` says VALID or INVALID.
-6. **Release**: `tools/release.py` renders the film and the clay animatic, builds the contact sheet (and the
-   side-by-side comparison for a clip), copies the scene, runs the checks and commits.
+6. **Release**: `tools/release.py` renders the film and the clay animatic, builds the contact sheet, copies the
+   scene, exports the trajectory, runs the checks and commits.
+7. **Review**: a second person scores the film and its record (`tools/review.py`, [docs/review.md](docs/review.md)).
 
 ## What a film leaves behind
 
 ```
 <BFF_ROOT>/films/<slug>/          the film repo; its git history
-  film.json  Brief.md  Docs/      the input and its modes; treatment, critique, report
-  reference/                      video input: the clip, its cuts, frames and sheets, the breakdown
+  film.json  Brief.md  Docs/      the script; breakdown, treatment, critique, report
+  storyboard/                     storyboard input: the pages as given
   build/                          every step script in order (order.txt), kit.py, mannequin.py, baked data
   steps/<NNNN>-<name>/            script.py, state.json, preview.png, result.json, stdout.log
   workflow.jsonl                  one row per operation, with its reason
   shotlist.json                   every shot: frames, camera, move, size, angle, subject, events
-  out/                            film.mp4, animatic_clay.mp4, animatic_blockout.mp4, contact_sheet.png, scene.blend
+  out/                            film.mp4, greybox.mp4 (final films), animatic_clay.mp4, contact_sheet.png, scene.blend
+  review/                         a reviewer's scores and decision
 <BFF_ROOT>/.recording/<slug>/
   commits.jsonl                   one row per commit
   actions.jsonl                   every tool call of the sessions that made it
   messages.jsonl                  every prompt the person typed and every reply the model wrote
+  trajectory/                     trajectory.jsonl, trajectory.md, images/, analysis.json (tools/trajectory.py)
 ```
 
 ## Read first
@@ -73,6 +75,7 @@ On a Mac or a Windows PC with git, Git LFS, Python 3.9+, Blender 5.2 LTS, ffmpeg
 - [docs/film-format.md](docs/film-format.md): a film repo's files, `workflow.jsonl`, `shotlist.json`, the validator.
 - [docs/shot-facts.md](docs/shot-facts.md): how camera move, shot size, angle and subject are measured.
 - [machine/README.md](machine/README.md): the machine root, the config, the recording hooks.
-- [docs/briefs/](docs/briefs/): the prompts that start a film session (solo and coordinated).
+- [docs/briefs/solo-film.md](docs/briefs/solo-film.md): the prompt that starts a film session.
+- [docs/review.md](docs/review.md): how a released film and its record are scored.
 
 Films, recordings, pictures and videos do not go in this repository.

@@ -4,18 +4,21 @@
     python tools/validate-film.py <films>/<slug> [--release] [--json <file>] [--quiet]
 
 Checks, each ERROR (the film is INVALID) or WARN:
-  files      film.json, Brief.md, Docs/Treatment.md, build/kit.py, build/order.txt, workflow.jsonl, steps/
+  files      film.json, Brief.md, Docs/Breakdown.md, Docs/Treatment.md, build/kit.py, build/order.txt, workflow.jsonl, steps/
   steps      every step folder is whole (script, result, state; a picture once there is a camera); every script of
              build/order.txt exists; the scene was only changed through steps
   workflow   rows parse, ids and seq run on without gaps, one row per step
   scene      (from the newest step's state) film format as in film.json, one camera per shot bound to a marker, no
              default-file leftovers, every mesh has a material, nothing linked or loaded from outside the film
-  fidelity   counts against the floors of the output mode (final: a finished picture; previs: staging and motion)
+  fidelity   counts of the scene against what a film of that output usually has (warnings only: a person judges
+             the picture, tools/review.py)
+  trajectory (--release) the recorded session: a note and a look at a picture before 90 % of the steps, every
+             opened picture still there, no name or address that must not ship (tools/trajectory.py)
   names      banned names and machine paths in tracked text files and commit messages
   history    commits, one per step; WIP commits; steps batched or missing
   release    (--release) out/film.mp4 and out/animatic_clay.mp4 (codec, size, frame rate, length, the same frame
              count, no dead frames), out/contact_sheet.png, out/scene.blend, shotlist.json (tools/shots.py),
-             Docs/Critique.md, Docs/Report.md, and for a video input the reference files and out/comparison.mp4
+             Docs/Critique.md, Docs/Report.md, for a final film out/greybox.mp4, for a storyboard input its pages
 Exit code 0 VALID, 2 INVALID. Python 3.9+ standard library only; ffprobe/ffmpeg and Blender only for --release.
 """
 import argparse
@@ -30,8 +33,8 @@ sys.path.insert(0, str(REPO / 'machine' / 'lib'))
 import bffroot  # noqa: E402
 
 FLOORS = {
-    'final': dict(steps=40, tris=300000, meshes=40, materials=12, rich_share=0.6, lights=3, animated=5, dof=1, critique_rounds=2),
-    'previs': dict(steps=12, tris=0, meshes=5, materials=2, rich_share=0.0, lights=0, animated=1, dof=0, critique_rounds=1),
+    'final': dict(tris=300000, meshes=40, materials=12, rich_share=0.6, lights=3, animated=5, dof=1, critique_rounds=2),
+    'greybox': dict(tris=0, meshes=5, materials=2, rich_share=0.0, lights=0, animated=1, dof=0, critique_rounds=1),
 }
 TEXT = {'.py', '.md', '.json', '.jsonl', '.txt', '.log', '.gitignore', '.gitattributes'}
 
@@ -85,7 +88,7 @@ def main():
     film, rep = Path(a.film).resolve(), Report()
 
     # files
-    for f in ('film.json', 'Brief.md', 'Docs/Treatment.md', 'build/kit.py', 'build/order.txt', 'workflow.jsonl'):
+    for f in ('film.json', 'Brief.md', 'Docs/Breakdown.md', 'Docs/Treatment.md', 'build/kit.py', 'build/order.txt', 'workflow.jsonl'):
         if not (film / f).is_file():
             rep.error('files', f'{f} is missing')
     try:
@@ -95,10 +98,11 @@ def main():
         sys.exit(2)
     mode, fmt = meta.get('output'), meta.get('format', {})
     floors = FLOORS.get(mode)
-    if not floors or meta.get('input') not in ('text', 'video'):
-        rep.error('files', 'film.json: input must be text or video, output final or previs')
+    if not floors or meta.get('input') not in ('script', 'storyboard'):
+        rep.error('files', 'film.json: input must be script or storyboard, output final or greybox')
         floors = FLOORS['final']
-    for f, marker in (('Brief.md', '<!-- The first commit'), ('Docs/Treatment.md', '<!-- Written and committed')):
+    for f, marker in (('Brief.md', '<!-- The first commit'), ('Docs/Breakdown.md', '<!-- Written from the script'),
+                      ('Docs/Treatment.md', '<!-- Written and committed')):
         if (film / f).is_file() and marker in (film / f).read_text(encoding='utf-8'):
             rep.error('files', f'{f} is still the template: write it before the first step')
 
@@ -130,8 +134,6 @@ def main():
     if len(set(order)) != len(order):
         rep.error('steps', 'build/order.txt lists a script twice')
     rep.info.update(steps=len(steps), ok_steps=len(ok_steps), failed_steps=len(steps) - len(ok_steps))
-    if len(ok_steps) < floors['steps']:
-        rep.warn('history', f'{len(ok_steps)} successful steps; a {mode} film built one visible change at a time leaves at least {floors["steps"]}: steps were batched')
 
     # workflow
     rows = []
@@ -189,7 +191,7 @@ def main():
         rep.info['fidelity'] = fid
         for k in ('tris', 'meshes', 'materials', 'rich_share', 'lights', 'animated', 'dof'):
             if fid[k] < floors[k]:
-                (rep.error if a.release else rep.warn)('fidelity', f'{k} = {fid[k]}, the floor for a {mode} film is {floors[k]}')
+                rep.warn('fidelity', f'{k} = {fid[k]}; a {mode} film usually has {floors[k]} or more')
     else:
         rep.warn('scene', 'no successful step yet')
 
@@ -246,8 +248,10 @@ def main():
         elif fp and (cp['frames'] != fp['frames'] or abs(cp['fps'] - fp['fps']) > 1e-3):
             rep.error('release', f'out/animatic_clay.mp4 has {cp["frames"]} frames at {cp["fps"]:g} fps; the film has {fp["frames"]} at {fp["fps"]:g}')
         need = ['out/contact_sheet.png', 'out/scene.blend', 'Docs/Critique.md', 'Docs/Report.md', 'shotlist.json']
-        if meta.get('input') == 'video':
-            need += ['reference/reference.json', 'reference/Breakdown.md', 'out/comparison.mp4']
+        if meta.get('input') == 'storyboard':
+            need += ['storyboard/storyboard.json']
+        if mode == 'final':
+            need += ['out/greybox.mp4']
         for f in need:
             if not (film / f).is_file():
                 rep.error('release', f'{f} is missing')
@@ -261,6 +265,23 @@ def main():
                 rep.error('shots', pr)
         except Exception:
             rep.error('shots', 'tools/shots.py could not measure the scene: ' + (r.stderr or r.stdout)[-200:])
+        r = subprocess.run([sys.executable, str(REPO / 'tools' / 'trajectory.py'), str(film), '--json'], capture_output=True, text=True)
+        try:
+            t = json.loads(r.stdout.strip().splitlines()[-1])
+        except Exception:
+            t = dict(ok=False, error='tools/trajectory.py failed: ' + (r.stderr or r.stdout)[-200:])
+        rep.info['trajectory'] = {k: t.get(k) for k in ('events', 'step_calls', 'note_coverage', 'looked_coverage', 'pictures_missing', 'leak_events')}
+        if not t.get('ok'):
+            rep.warn('trajectory', t.get('error', 'no recording'))
+        else:
+            if t['step_calls'] and t['note_coverage'] < 0.9:
+                rep.error('trajectory', f"a note before only {t['note_coverage']:.0%} of the steps (90 % needed): say what the picture shows and what comes next before every step")
+            if t['step_calls'] and t['looked_coverage'] < 0.9:
+                rep.error('trajectory', f"a picture was opened before only {t['looked_coverage']:.0%} of the steps (90 % needed)")
+            if t['pictures_missing']:
+                rep.error('trajectory', f"{t['pictures_missing']} picture(s) the session opened are gone (they are part of the record: never delete .local/render before release)")
+            if t['leak_events']:
+                rep.error('trajectory', f"{t['leak_events']} event(s) of the recording hold a name or address that must not ship (tools/trajectory.py lists them)")
         rj = film / '.local' / 'replay' / 'result.json'
         if not rj.is_file() or not json.loads(rj.read_text(encoding='utf-8')).get('ok'):
             rep.error('release', 'no passing replay: run tools/replay.py (it must say REPLAY OK)')
@@ -278,6 +299,8 @@ def main():
               f"{i.get('critique_issues')} critique issues / {i.get('critique_fixes')} fixes, {i.get('wip_commits')} WIP")
         if 'fidelity' in i:
             print('scene:   ' + ', '.join(f'{k} {v}' for k, v in i['fidelity'].items()))
+        if 'trajectory' in i:
+            print('record:  ' + ', '.join(f'{k} {v}' for k, v in i['trajectory'].items()))
     print(('VALID' if not rep.errors else f'INVALID ({len(rep.errors)} error(s))') + (' for release' if a.release else ''))
     sys.exit(0 if not rep.errors else 2)
 

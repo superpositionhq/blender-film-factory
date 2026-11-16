@@ -1,6 +1,6 @@
 ---
 name: blender-film-commit-always
-description: 'Commit discipline for every blender-film-factory session (film builders, helpers, coordinator). Use whenever you change files in a film repo or in blender-film-factory, before ending any turn, and when deciding what may be committed or pushed. Covers the step tool (one step, one picture, one commit), messages, workflow.jsonl rows, LFS, what never to commit, push policy and the WIP auto-commit hook.'
+description: 'Commit discipline for every blender-film-factory session (film sessions and helpers). Use whenever you change files in a film repo or in blender-film-factory, before ending any turn, and when deciding what may be committed or pushed. Covers the step tool (one step, one picture, one commit), messages, workflow.jsonl rows, LFS, what never to commit, push policy and the WIP auto-commit hook.'
 ---
 
 # Commit always (Blender films)
@@ -21,21 +21,21 @@ commits is the cadence of steps:
 - **Never batch.** Never several objects in one step script, never several fixes, never "model and material" of an
   object together. _(why: a task is cut from one thread of the history, one object from blockout to finished or one
   issue from finding to fix; a step that holds three threads belongs to none of them)_
-- **A step script is short**: past about 120 lines of new code, or about 10 minutes of work, it is two steps.
-  `tools/validate-film.py` warns on a history with too few steps for its output mode.
+- **A step script is short**: one thing a viewer could point at. Past about 120 lines of new code it is two steps.
+  Never split one change into empty steps to make the history longer.
 - **A failed step is committed too** (the tool does it): the folder, the row with status `failed`, the commit
   `Failed: ...`. Then fix the script and run it again as a new step. Dead ends are the most useful part of the record.
 - **Never end a turn with uncommitted work of yours.** Last thing of every turn: `git status` in the film repo,
   commit what is yours, report the sha.
 
-Everything that is not a scene change is committed by hand, one thing per commit: the brief, the treatment, a
-reference breakdown, a critique round's notes, the shot list, the report.
+Everything that is not a scene change is committed by hand, one thing per commit: the brief, the breakdown, the
+treatment, a critique round's notes, the shot list, the report.
 
 ## Which repo, which files
 
 - **Film session:** your film repo (`<BFF_ROOT>/films/<slug>`): `git add -A` is fine there, it is yours alone. You
   edit nothing in blender-film-factory.
-- **Helper / coordinator:** blender-film-factory is one checkout shared by several sessions. Stage explicit paths
+- **Helper:** blender-film-factory is one checkout shared by several sessions. Stage explicit paths
   only, never `git add -A` / `git commit -a`, never commit another session's changes.
 
 ## Message
@@ -63,7 +63,7 @@ reference breakdown, a critique round's notes, the shot list, the report.
   `fx.add`, `anim.polish`, `camera.polish`, `render.settings`, `comp.grade`, `critique.fix`, `fix`.
 - **Everything else you write with the row tool**, as you do it:
   `python3 <BFF_ROOT>/blender-film-factory/tools/workflow-row.py <BFF_ROOT>/films/<slug> --op <op> --target <what> --reason "<why, as you see it now>" [--param key=value]`
-  (`python` on Windows). Ops: `brief.write`, `reference.breakdown`, `treatment.write`, `animatic.render`,
+  (`python` on Windows). Ops: `brief.write`, `breakdown.write`, `treatment.write`, `greybox.render`,
   `critique.issue` (one per issue: target the object or shot, `--param round=<n> --param frame=<n>`, the reason
   says what is wrong on screen), `shotlist.write`, `report.write`, `release`. A `critique.fix` step names its
   issue: put the issue row's id in the reason (`fixes ks-00101`).
@@ -75,7 +75,7 @@ reference breakdown, a critique round's notes, the shot list, the report.
 - **Human directions (owner's rule: "not direct user messages, more like user directions").** Whoever receives a
   user message REWRITES it as a direction: what to change and why, one or two neutral sentences, without tone,
   profanity, names or chat wording. The direction is SAVED at once, before any action:
-  `workflow-row.py <film> --op user.direction --target <area> --reason "<the direction>" [--via coordinator]`
+  `workflow-row.py <film> --op user.direction --target <area> --reason "<the direction>"`
   (`target`: `story`, `camera`, `lighting`, `animation`, `art`, `edit`, `sound`, `process`...). Every later step
   that acts on it carries `--direction <that row id>`. The raw message is never stored in the repo (the machine's
   hooks keep every prompt as typed in the recording's `messages.jsonl`). One row per direction, not per message.
@@ -84,7 +84,7 @@ reference breakdown, a critique round's notes, the shot list, the report.
 
 Everything needed to rebuild the film from the repo alone: `film.json`, `Brief.md`, `Docs/`, `build/` (every step
 script, `kit.py`, `mannequin.py`, `order.txt`, `build/data/`), `steps/`, `workflow.jsonl`, `shotlist.json`,
-`textures/` (images your scripts generate), `reference/` (a video input), `out/` at release, `README.md`.
+`textures/` (images your scripts generate), `storyboard/` (a storyboard input), `out/`, `README.md`.
 
 - **Binaries go through Git LFS, and only binaries**: pictures, videos, sound, `.blend`. The template's
   `.gitattributes` covers them; check a new type with `git check-attr filter -- <file>` (must say `lfs`). Scripts,
@@ -102,7 +102,7 @@ came out wrong stays, and the next step fixes it. Never renumber or delete a ste
 
 ## Push policy
 
-- **Never push unless the coordinator says so** (or the person, in your own session).
+- **Never push unless the person says so.**
 - When told: `git push origin main --follow-tags`, then verify `git ls-remote origin main` matches
   `git rev-parse HEAD` and `git lfs push origin main --dry-run` lists nothing left.
 - Film repos live at `<org>/film-<slug>` (private; `<org>` = `github_org` in the machine config). Never force-push.

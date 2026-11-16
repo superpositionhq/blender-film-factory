@@ -5,11 +5,12 @@
   python tools/render.py <film> --shots [--per-shot 3] ...        first / middle / last (or N) frames of every shot
   python tools/render.py <film> --all [--mp4 out/film.mp4] [--audio <wav>] [--resume] [--pct 100] [--clay]
 
-Frames go to <film>/.local/render/<name>/f<frame>.png (name: --out, default "test"; .local is never committed).
+Frames go to <film>/.local/render/<name>-<NNN>/f<frame>.png (name: --out, default "test"; every call gets the next
+number, so a picture already looked at is never overwritten; --all uses <name> itself; .local is never committed).
 --sheet N tiles the frames just rendered into <out>/sheet.png, N per row, so one picture shows them all.
 --all renders frame_start..frame_end; with --mp4 it then encodes H.264 (yuv420p, crf 16) at the scene's frame rate,
 scaled to the full film size when --pct is under 100, with --audio muxed in. --resume skips frames that are there.
---clay renders the white-model version (one clay material, plain light): the previs look and the clay animatic.
+--clay renders the white-model version (one clay material, plain light): the greybox look and the clay animatic.
 It prints the seconds per frame. Python 3.9+ standard library only; needs Blender and ffmpeg.
 """
 import argparse
@@ -69,7 +70,14 @@ def main():
             frames += [s + round((e - s) * (i + 0.5) / n) for i in range(n)] if n != 3 else [s + min(8, (e - s) // 4), (s + e) // 2, e - min(8, (e - s) // 4)]
     else:
         frames = list(range(state['frame_start'], state['frame_end'] + 1))
-    out = film / '.local' / 'render' / a.out
+    base = film / '.local' / 'render'
+    if a.all:
+        out = base / a.out
+    else:
+        # every look gets its own folder: a picture the session has opened is never overwritten (it is part of the
+        # trajectory), so the name carries a running number
+        n = 1 + max([int(d.name.rsplit('-', 1)[1]) for d in base.glob(a.out + '-[0-9][0-9][0-9]')] or [0]) if base.is_dir() else 1
+        out = base / f'{a.out}-{n:03d}'
     out.mkdir(parents=True, exist_ok=True)
     opts = [f'pct={a.pct}'] + ([f'samples={a.samples}'] if a.samples else []) + (['clay=1'] if a.clay else []) + (['skip=1'] if a.resume else [])
     times = []

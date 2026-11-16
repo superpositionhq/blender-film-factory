@@ -7,9 +7,10 @@ A film is one git repo, `<BFF_ROOT>/films/<slug>`, made by `templates/new-film.p
 
 | Path | What | When |
 |---|---|---|
-| `film.json` | `schema film/v1`, slug, title, description, `input` (`text` / `video`), `output` (`final` / `previs`), `format` (width, height, fps, min/max seconds, min shots), blender version | creation |
-| `Brief.md` | the input, word for word; for a clip, where it is from and its licence | before the treatment |
-| `reference/` | video input: `reference.<ext>`, `reference.json` (`film-reference/v1`: duration, fps, size, cuts, shots), `frames/`, `sheets/`, `Breakdown.md` | before the treatment |
+| `film.json` | `schema film/v1`, slug, title, description, `input` (`script` / `storyboard`), `output` (`greybox` / `final`), `format` (width, height, fps, min/max seconds, min shots), blender version | creation |
+| `Brief.md` | the script, every line as given | before the breakdown |
+| `storyboard/` | storyboard input: `page_<NN>.<ext>`, `storyboard.json` (`film-storyboard/v1`), `sheet.jpg` | with the brief |
+| `Docs/Breakdown.md` | the script read: cast and things, places, timed beats with their script lines (and the panel table), what the input leaves open | before the treatment |
 | `Docs/Treatment.md` | idea, look, object list, shot list, rhythm, status | before the first step |
 | `build/` | step scripts `NNN_name.py`, `kit.py`, `mannequin.py`, `order.txt` (the scripts that ran, in order), `data/` (baked numbers a step reads) | as built |
 | `steps/<NNNN>-<name>/` | `script.py` (the code that ran), `state.json`, `preview.png`, `result.json`, `stdout.log` | one per step |
@@ -18,7 +19,8 @@ A film is one git repo, `<BFF_ROOT>/films/<slug>`, made by `templates/new-film.p
 | `Docs/Critique.md` | `## Round <n>` sections: shot, what is weak, the fix | critique rounds |
 | `shotlist.json` | one entry per shot (below) | before release |
 | `Docs/Report.md` | what was made, what works, what is weak, render settings and time, steps, what next | before release |
-| `out/` | `film.mp4`, `animatic_clay.mp4`, `animatic_blockout.mp4`, `contact_sheet.png`, `scene.blend`, and `comparison.mp4` for a clip | release |
+| `out/` | `film.mp4`, `animatic_clay.mp4`, `contact_sheet.png`, `scene.blend`; a final film also `greybox.mp4` (rendered at the end of its grey-box stage) | release |
+| `review/review-<NN>.json` | a reviewer's scores and decision (`film-review/v1`; [review.md](review.md)) | after release |
 
 Not in the repo: `scene.blend` at the root (rebuilt by `build/order.txt`), `.local/` (checkpoints, renders).
 Pictures, videos, sound and `.blend` go through Git LFS.
@@ -46,11 +48,12 @@ A list, one entry per shot, in order:
 ```json
 {"shot": 1, "name": "Dusk room", "frame_start": 1, "frame_end": 120, "video_start_s": 0.0, "video_end_s": 5.0,
  "camera": "Cam_S1_DuskRoom", "camera_move": "dolly", "shot_size": "extreme wide", "camera_angle": "eye level",
- "subject": "TeaBowl", "description": "Dusk. The room: the bowl on the chest under the lit lantern. Slow dolly in.",
+ "subject": "TeaBowl", "script_lines": "1-3", "panels": ["P1"], "description": "Dusk. The room: the bowl on the chest under the lit lantern. Slow dolly in.",
  "events": [{"name": "lantern starts to swing", "object": "Lantern_Pivot", "frame": 132}]}
 ```
 
-Every value is checked against the scene by `tools/shots.py` ([shot-facts.md](shot-facts.md)).
+`script_lines` names the lines of `Brief.md` the shot covers; `panels` (storyboard input) the panels of the
+breakdown's table. Every other value is checked against the scene by `tools/shots.py` ([shot-facts.md](shot-facts.md)).
 
 ## The scene
 
@@ -58,27 +61,23 @@ One scene, one timeline, the film's format as in `film.json`; one camera object 
 marker at its first frame; every object named for what it is; every rendered mesh with a material; nothing left of
 the default file; nothing linked or loaded from outside the film.
 
-## Floors by output mode
+## The trajectory
 
-| | `final` | `previs` |
-|---|---|---|
-| successful steps | 40 (80 to 130 is normal) | 12 (30 to 60 is normal) |
-| evaluated triangles | 300,000 | none |
-| mesh objects | 40 | 5 |
-| materials in use, share that are more than a bare shader | 12, 60 % | 2, none |
-| lights | 3 | none |
-| animated objects besides cameras | 5 | 1 |
-| shots with depth of field | 1 | none |
-| critique rounds | 2 | 1 |
-
-Warnings while the film is being built, errors with `--release`.
+`tools/trajectory.py <film>` writes `<BFF_ROOT>/.recording/<slug>/trajectory/`: `trajectory.jsonl`
+(`film-trajectory/v1`, one event per line in time order: `i, time, type` (`user` / `assistant` / `tool`), `text`, or
+`tool, input, result, error`, and `image` for a picture the model opened), `images/`, `trajectory.md` and
+`analysis.json` (events, step calls, `note_coverage`, `looked_coverage`, missing pictures, leaks). Tool results are
+kept whole. Paths are rewritten to `<film>`, `<tools>`, `<root>` and `~`.
 
 ## Release checks (`--release`)
 
 `out/film.mp4` is H.264 at the scene's size and frame rate with exactly the scene's frame count and no
 near-uniform frame; `out/animatic_clay.mp4` has the same frame count and rate; the contact sheet, the scene copy,
 the critique and the report exist; `shotlist.json` holds (`tools/shots.py`); the last `tools/replay.py` said
-`REPLAY OK`; a clip input also has its reference files and `out/comparison.mp4`.
+`REPLAY OK`; a final film has `out/greybox.mp4`; a storyboard input has its pages; and the record holds: a note and
+a look at a picture before at least 90 % of the steps, every opened picture still there, no account name, address
+or owner's name left in it. Counts of the scene (triangles, materials, lights) are reported as warnings only: a
+person judges the picture ([review.md](review.md)).
 
 ## Names
 

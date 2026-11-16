@@ -4,12 +4,13 @@
   python tools/release.py <film> [--pct 100] [--samples N] [--audio <wav in the film>] [--resume] [--no-commit]
 
 In this order (each line says what it did):
-  1. out/film.mp4            every frame at full size (final) or with the previs look as built (previs)
+  1. out/film.mp4            every frame at full size (final) or with the greybox look as built (greybox)
   2. out/animatic_clay.mp4   the same frames with one clay material and a plain light
   3. out/contact_sheet.png   three frames of every shot, from the film's frames
-  4. out/comparison.mp4      video input only: the reference clip beside the film, the reference's sound kept out
+  4. out/greybox.mp4         final films only: must be there already (the grey-box video of the blockout stage)
   5. out/scene.blend         a copy of the finished scene
-  6. tools/replay.py, tools/shots.py, tools/validate-film.py --release
+  6. tools/replay.py, tools/shots.py, tools/trajectory.py (the recorded session as one ordered trajectory, in
+     <BFF_ROOT>/.recording/<slug>/trajectory/), tools/validate-film.py --release
   7. one commit "Release: film, clay animatic, contact sheet, scene" when the film is VALID for release
 Frames stay in .local/render/final and .local/render/clay; --resume goes on where a render stopped.
 Check the time per frame with tools/render.py --shots first: 5 s per frame is 6 minutes for a 30 s film at 24 fps.
@@ -70,20 +71,16 @@ def main():
         f'concat=n={len(frames)}:v=1,tile=3x{len(marks)}:padding=6:margin=6:color=0x111111'
     r = subprocess.run([ff, '-y', '-loglevel', 'error', *ins, '-filter_complex', fc, '-frames:v', '1', str(film / 'out' / 'contact_sheet.png')], capture_output=True, text=True)
     print(f'  out/contact_sheet.png: frames {frames}' if r.returncode == 0 else '  FAILED: ' + r.stderr.strip()[-300:])
-    if meta.get('input') == 'video':
-        print('4. comparison')
-        ref = json.loads((film / 'reference' / 'reference.json').read_text(encoding='utf-8'))
-        r = subprocess.run([ff, '-y', '-loglevel', 'error', '-i', str(film / 'reference' / ref['file']), '-i', str(film / 'out' / 'film.mp4'),
-                            '-filter_complex', '[0:v]scale=-2:540,setsar=1[a];[1:v]scale=-2:540,setsar=1[b];[a][b]hstack=inputs=2:shortest=0[v]',
-                            '-map', '[v]', '-an', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '18', str(film / 'out' / 'comparison.mp4')],
-                           capture_output=True, text=True)
-        print('  out/comparison.mp4 (reference left, film right)' if r.returncode == 0 else '  FAILED: ' + r.stderr.strip()[-300:])
+    if meta.get('output') == 'final':
+        have = (film / 'out' / 'greybox.mp4').is_file()
+        print('4. grey-box video\n  out/greybox.mp4 ' + ('is there' if have else 'IS MISSING: render it from the blockout stage (blender-film-session skill, "Build order", 3)'))
     print('5. scene')
     shutil.copyfile(film / 'scene.blend', film / 'out' / 'scene.blend')
     print('  out/scene.blend')
     print('6. checks')
     tool('replay.py', film)
     tool('shots.py', film)
+    tool('trajectory.py', film)
     ok = tool('validate-film.py', film, '--release') == 0
     if ok and not a.no_commit:
         subprocess.run(['git', '-C', str(film), 'add', '-A'])

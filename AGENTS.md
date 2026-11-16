@@ -1,10 +1,10 @@
 # AGENTS.md — blender-film-factory: instructions for every session
 
-This repo coordinates coding-agent sessions (Claude Code or OpenAI Codex CLI) that each make one short film in
-Blender 5.2, headless and in code (`<BFF_ROOT>/films/<slug>`, private `<org>/film-<slug>` repos, `<org>` =
-`github_org` in the machine config), and records how each is made: the step scripts, a picture and the scene state
-of every step, `workflow.jsonl`, the git history and every tool call become a creation dataset, and later tasks are
-cut from that real history. `<BFF_ROOT>` is the machine root (env `BFF_ROOT`, else `root` in
+This repo sets up coding-agent sessions (Claude Code or OpenAI Codex CLI) that each make one short film in
+Blender 5.2 from a script, headless and in code (`<BFF_ROOT>/films/<slug>`, private `<org>/film-<slug>` repos, `<org>` =
+`github_org` in the machine config), and records how each is made. **The record is the product**: the model's note
+before each step, each step's script, picture and scene state, every tool call with its whole result, exported as
+one ordered trajectory per film (`tools/trajectory.py`) for training. `<BFF_ROOT>` is the machine root (env `BFF_ROOT`, else `root` in
 `~/.blender-film-factory/config.json`, else `~/FilmWork`); see [machine/README.md](machine/README.md). Claude Code
 reads this file through [CLAUDE.md](CLAUDE.md); Codex reads it directly (and through `<root>/AGENTS.md`).
 
@@ -13,56 +13,51 @@ reads this file through [CLAUDE.md](CLAUDE.md); Codex reads it directly (and thr
 and the hooks that record it are the new ones. The tools, rules and validator change often; a film made with old
 ones can fail the checks.
 
-A film has an input mode and an output mode, fixed when it is created:
+A film has an input and an output, fixed when it is created:
 
-| | `text` input: a written prompt | `video` input: a reference clip to recreate |
-|---|---|---|
-| **`final` output**: a finished picture | text to film | video to film |
-| **`previs` output**: mannequins and blocks | text to previs | video to previs |
+| Input | Output |
+|---|---|
+| `script`: a written script | `greybox`: a grey-box video (mannequins and blocks: staging, motion, camera, cuts) |
+| `storyboard`: a script with storyboard pictures | `final`: a fully rendered film, which also delivers its grey-box video (`out/greybox.mp4`) |
 
 Skills (one source, [skills/](skills/); `machine/bootstrap.py` copies them to `~/.claude/skills/` for Claude Code
 and `~/.agents/skills/` for Codex; read the `SKILL.md` named here before the work it covers, whichever agent you
 are). They carry a `blender-film-` prefix so they install next to another factory's skills:
 
-- **blender-film-commit-always** ([SKILL.md](skills/blender-film-commit-always/SKILL.md)): every session. One step
-  and one commit per visible change, never end a turn with uncommitted work, names that say what changed on screen,
-  `workflow.jsonl` rows, LFS for binaries only, push only when the coordinator says.
-- **blender-film-session** ([SKILL.md](skills/blender-film-session/SKILL.md)): every film. The start, the step tool
-  and its pictures, the build order, cameras and markers, the shot list, names, recording, the deliverables.
-- **blender-film-previs** ([SKILL.md](skills/blender-film-previs/SKILL.md)): films with `previs` output. Mannequins,
-  blocks, previs colours, the plain light, what done means.
-- **blender-film-final** ([SKILL.md](skills/blender-film-final/SKILL.md)): films with `final` output. Models,
-  materials, lighting, depth of field, render, colour, critique rounds, floors.
-- **blender-film-reference** ([SKILL.md](skills/blender-film-reference/SKILL.md)): films with `video` input. The
-  clip's frames and sheets, the breakdown, timing, what must match, the comparison.
+- **blender-film-commit-always** ([SKILL.md](skills/blender-film-commit-always/SKILL.md)): every session.
+- **blender-film-session** ([SKILL.md](skills/blender-film-session/SKILL.md)): every film: reading the script, the
+  step tool, the build order, the shot list, the deliverables.
+- **blender-film-greybox** ([SKILL.md](skills/blender-film-greybox/SKILL.md)): the grey-box output and the grey-box
+  stage of a final film.
+- **blender-film-final** ([SKILL.md](skills/blender-film-final/SKILL.md)): the fully rendered output.
+- **blender-film-storyboard** ([SKILL.md](skills/blender-film-storyboard/SKILL.md)): inputs with storyboard pictures.
+
+The rules of film making live in those skills and nowhere else; this file and the briefs only point at them.
 
 **Only these skills (owner's rule).** Contractors and every agent session working for blender-film-factory use the
 skills above and no others. Never install, enable or invoke any other skill: not the person's own personal or
 project skills, not a plugin's or a marketplace's skills, not the skills bundled with the agent, and not another
 factory's skills even when the machine has them installed. A skill the agent offers by name or description that is
-not one of these is ignored. Work no skill here covers is done by hand under these rules, or asked about (the
-coordinator, or the person in a solo session). _(why: the recorded sessions are the dataset, so how a film gets made
+not one of these is ignored. Work no skill here covers is done by hand under these rules, or asked of the person. _(why: the recorded sessions are the dataset, so how a film gets made
 must follow these rules only; another skill brings instructions and habits nobody here reviewed into the creation
 record)_
 
-Session briefs: [docs/briefs/film-session.md](docs/briefs/film-session.md) (started by a coordinator),
-[docs/briefs/solo-film.md](docs/briefs/solo-film.md) (one person, one session). New machine:
+Brief that starts a session: [docs/briefs/solo-film.md](docs/briefs/solo-film.md). New machine:
 [docs/new-machine.md](docs/new-machine.md). Film format and validator: [docs/film-format.md](docs/film-format.md).
-Shot facts: [docs/shot-facts.md](docs/shot-facts.md).
+Shot facts: [docs/shot-facts.md](docs/shot-facts.md). Review: [docs/review.md](docs/review.md).
 
-**The core rule: one step, one picture, one commit per visible change.** A film's scene changes only through
-`tools/step.py`: it runs one step script in headless Blender, saves the script, the scene state and a picture from
-the shot camera, writes the workflow row and commits. One object, one material family, one light, one shot's
-camera, one animation beat, one fix per step. A final film leaves roughly 80 to 130 steps, a previs 30 to 60.
-_(why: the history is the dataset; a film built in ten big steps has no thread in it to cut a task from)_ The rule
-is in the blender-film-session skill ("The step").
+**The core rule: a note, one step, one picture, one commit per visible change.** Before every step the session
+writes what the newest picture shows and what it will change next and why; then `tools/step.py` runs one step
+script in headless Blender, saves the script, the scene state and a picture, writes the workflow row and commits;
+then the session opens the picture. _(why: the model's private reasoning is not kept; a trajectory without the
+notes and the looks teaches nothing, and `tools/validate-film.py --release` rejects it)_ The rule is in the
+blender-film-session skill ("The step").
 
 **Blender runs headless only.** No session opens the Blender window or takes over the screen.
 
-**Priorities.** What ships is what matters, in this order: the film is whole (every frame renders, the format is
-met, the deliverables exist); the history is dense and honest (one step per visible change, rows written as things
-happened, the replay passes); the shot list is true of the scene; taste. No polishing loops outside the critique
-rounds, and no re-doing a step to get a nicer picture of it.
+**Priorities.** In this order: the record is whole and honest; the film shows the script; the film is whole; the
+shot list is true; taste. A person scores each released film and its record (`tools/review.py`); only accepted
+films are used.
 
 This checkout is shared by several sessions at once: stage explicit paths only and never commit another session's
 changes. A film session edits nothing here.
@@ -76,16 +71,17 @@ changes. A film session edits nothing here.
 | film template (brief, treatment, step kit, mannequin kit) + `new-film.py` | `templates/` |
 | the step tool and its Blender harness | `tools/step.py`, `tools/blender/harness.py` |
 | test frames, sheets, animatics, the final video, the clay version | `tools/render.py` |
-| reference clip to cuts, frames and sheets | `tools/reference.py` |
+| storyboard pictures into a film | `tools/storyboard.py` |
 | shot facts measured from the scene, checked against `shotlist.json` | `tools/shots.py` ([docs/shot-facts.md](docs/shot-facts.md)) |
 | rebuild from an empty file and compare | `tools/replay.py` |
 | deliverables, checks and the release commit | `tools/release.py` |
+| the recorded session as one ordered trajectory; reasoning coverage; leaks | `tools/trajectory.py` |
+| a reviewer's scores and decision | `tools/review.py` ([docs/review.md](docs/review.md)) |
 | workflow rows | `tools/workflow-row.py` |
 | film format and validator | [docs/film-format.md](docs/film-format.md), `tools/validate-film.py` |
 
-Not here yet: task writing and task checks (no-op and oracle runs), dataset packaging, an art style library, sound
-tools. Where a rule names something that is not here, do not stand in for it by hand or with another factory's
-tool: ask.
+Not here: task writing and task checks, an art style library, sound tools, a coordinator for many sessions. Where
+a rule names something that is not here, do not stand in for it by hand or with another factory's tool: ask.
 
 ## Agents
 

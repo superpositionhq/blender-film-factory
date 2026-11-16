@@ -46,8 +46,9 @@ HOOKS = Path(__file__).resolve().parent
 sys.path[:0] = [str(HOOKS), str(HOOKS.parent / 'lib')]
 import bffroot  # noqa: E402
 
-MAX_TEXT = 200000   # chars kept per string field of tool_input
-MAX_RESP = 8000     # chars kept of the tool response
+# The record must hold what the model saw: a result is kept whole. The limits only stop a runaway output.
+MAX_TEXT = 2000000   # chars kept per string field of tool_input
+MAX_RESP = 2000000   # chars kept of the tool response (picture data is left out: the input names the file)
 MAP, BACKFILL, MESSAGES = (HOOKS / n for n in ('recording-sessions.json', 'recording-backfill.json',
                                                'recording-messages.json'))
 AGENT = 'claude'
@@ -55,6 +56,15 @@ AGENT = 'claude'
 
 def clip(v, n):
     return v[:n] + f'...[truncated {len(v) - n} chars]' if isinstance(v, str) and len(v) > n else v
+
+
+def keep_response(resp):
+    """A tool result as recorded: whole, except picture data (base64), which is megabytes the picture file already
+    holds; the row then says so and the call's input names the file."""
+    text = resp if isinstance(resp, str) or resp is None else json.dumps(resp, ensure_ascii=False, separators=(',', ':'))
+    if text and '"base64"' in text[:400]:
+        return '{"type":"image","data":"left out: the picture is the file named in the input"}'
+    return clip(text, MAX_RESP)
 
 
 def read_map(path):
@@ -190,7 +200,7 @@ def backfill_rows(sid, project, path, until, skip):
         row['input'] = {k: clip(v, MAX_TEXT) for k, v in c['input'].items()} if isinstance(c['input'], dict) else {}
         if r['error']:
             row['error'] = clip(r['text'], MAX_RESP)
-        row['response'] = clip(r['resp'], MAX_RESP)
+        row['response'] = keep_response(r['resp'])
         row['result_time'] = local(r['ts'])
         rows.append(row)
         ids.append(c['id'])
@@ -454,8 +464,7 @@ def main():
             if e.get('error'):
                 row['error'] = clip(str(e['error']), MAX_RESP)
             resp = e.get('tool_response')
-            row['response'] = clip(resp if isinstance(resp, str) or resp is None
-                                   else json.dumps(resp, ensure_ascii=False, separators=(',', ':')), MAX_RESP)
+            row['response'] = keep_response(resp)
         bffroot.append_jsonl(actions, [row])
 
 

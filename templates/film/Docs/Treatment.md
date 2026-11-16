@@ -6,7 +6,7 @@
 <!-- beginning, turn, ending, in three or four sentences; told without words -->
 
 ## Look
-<!-- palette, light, materials, camera rules, references in words. For a previs: the staging rules and the colour of each figure. -->
+<!-- palette, light, materials, camera rules, references in words. For a greybox: the staging rules and the colour of each figure. -->
 
 ## Objects
 <!-- every object by name: what it is, how big, where it stands, what it is made of. An object added later is added here first. -->

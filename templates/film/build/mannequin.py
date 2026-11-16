@@ -1,4 +1,4 @@
-"""Previs figures and blocks for this film's step scripts: a jointed mannequin of rounded boxes, flat previs
+"""Grey-box figures and blocks for this film's step scripts: a jointed mannequin of rounded boxes, flat greybox
 colours, a walk along a path, simple poses. It is the film's own file; functions are only ever added, never changed.
 
     import bpy, sys, os
@@ -30,10 +30,10 @@ PARTS = ('Hips', 'Torso', 'Head', 'UpperArm_L', 'LowerArm_L', 'UpperArm_R', 'Low
          'UpperLeg_L', 'LowerLeg_L', 'UpperLeg_R', 'LowerLeg_R')
 
 
-def previs_mat(colour='grey'):
-    """One flat matte material per previs colour (a name from COLOURS, or an (r, g, b))."""
+def greybox_mat(colour='grey'):
+    """One flat matte material per greybox colour (a name from COLOURS, or an (r, g, b))."""
     rgb = COLOURS[colour] if isinstance(colour, str) else tuple(colour)
-    name = 'Previs_' + (colour if isinstance(colour, str) else '%02x%02x%02x' % tuple(int(c * 255) for c in rgb))
+    name = 'Greybox_' + (colour if isinstance(colour, str) else '%02x%02x%02x' % tuple(int(c * 255) for c in rgb))
     m = bpy.data.materials.get(name)
     if not m:
         m = bpy.data.materials.new(name)
@@ -63,19 +63,19 @@ def _box(name, size, centre, collection, mat, bevel=0.012):
 
 
 def block(name, size, location, colour='grey', collection=None, bevel=0.01):
-    """A previs prop or set piece: a bevelled box with its origin at the centre of its base."""
+    """A greybox prop or set piece: a bevelled box with its origin at the centre of its base."""
     collection = collection or bpy.context.scene.collection
-    ob = _box(name, size, (0, 0, size[2] / 2), collection, previs_mat(colour), bevel)
+    ob = _box(name, size, (0, 0, size[2] / 2), collection, greybox_mat(colour), bevel)
     ob.location = location
     return ob
 
 
 def light_rig(sun_direction=(0.4, 0.5, -0.75), world=(0.60, 0.62, 0.66)):
-    """The plain previs light: one soft sun named Previs_Sun and an even grey-blue world. Call it once."""
+    """The plain greybox light: one soft sun named Greybox_Sun and an even grey-blue world. Call it once."""
     scene = bpy.context.scene
-    ld = bpy.data.lights.new('Previs_Sun', 'SUN')
+    ld = bpy.data.lights.new('Greybox_Sun', 'SUN')
     ld.energy, ld.angle = 3.0, 0.12
-    ob = bpy.data.objects.new('Previs_Sun', ld)
+    ob = bpy.data.objects.new('Greybox_Sun', ld)
     scene.collection.objects.link(ob)
     ob.rotation_mode = 'QUATERNION'
     ob.rotation_quaternion = Vector(sun_direction).normalized().to_track_quat('-Z', 'Y')
@@ -90,7 +90,7 @@ def light_rig(sun_direction=(0.4, 0.5, -0.75), world=(0.60, 0.62, 0.66)):
 def build(name, height=1.75, colour='grey', collection=None, build=1.0):
     """A mannequin standing at the origin facing -Y. Returns the root empty. build: 0.8 slight .. 1.3 heavy."""
     collection = collection or bpy.context.scene.collection
-    mat, skin = previs_mat(colour), previs_mat('white')
+    mat, skin = greybox_mat(colour), greybox_mat('white')
     h, w = height, build
     hip, leg = 0.53 * h, 0.245 * h          # hip height; upper and lower leg lengths
     root = bpy.data.objects.new(name, None)
@@ -116,7 +116,7 @@ def build(name, height=1.75, colour='grey', collection=None, build=1.0):
         part(f'LowerArm_{side}', (0.045 * h * w, 0.045 * h * w, 0.20 * h), (0, 0, -0.10 * h), ua, (0, 0, -0.17 * h))
         ul = part(f'UpperLeg_{side}', (0.075 * h * w, 0.08 * h * w, leg), (0, 0, -leg / 2), hips, (sx * 0.055 * h * w, 0, 0))
         ll = part(f'LowerLeg_{side}', (0.06 * h * w, 0.065 * h * w, leg + 0.04 * h), (0, 0, -(leg + 0.04 * h) / 2), ul, (0, 0, -leg))
-        foot = _box(f'{name}_Foot_{side}', (0.06 * h * w, 0.15 * h, 0.035 * h), (0, -0.04 * h, 0.0175 * h), collection, previs_mat('dark'))
+        foot = _box(f'{name}_Foot_{side}', (0.06 * h * w, 0.15 * h, 0.035 * h), (0, -0.04 * h, 0.0175 * h), collection, greybox_mat('dark'))
         foot.parent = ll
         foot.location = (0, 0, -(leg + 0.04 * h))
     return root

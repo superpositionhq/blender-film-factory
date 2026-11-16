@@ -105,7 +105,8 @@ same hook JSON on stdin (`session_id`, `transcript_path`, `cwd`, `hook_event_nam
   the coordinator's) are never recorded, and nothing is while env `BFF_NO_RECORDING` is set.
 - **Tool calls** (PostToolUse, PostToolUseFailure) go to `<root>/.recording/<slug>/actions.jsonl`, one row each
   (schema `agent-action/v0`: `time, project, session_id, agent, event, cwd, tool, tool_use_id, input, response`, and
-  `error` for a failed call; string inputs are cut at 200,000 characters, the response at 8,000).
+  `error` for a failed call; inputs and results are kept whole, up to 2,000,000 characters each: the record holds what the model saw; picture
+  data in a result is left out, since the input names the picture file).
 - **Backfill.** At the first mapping the session's earlier tool calls are imported once from its transcript, in
   order, before the mapping call's own row, with `status: "from_transcript"` (Claude Code: the session's `.jsonl` and
   its subagents' beside it; Codex: the rollout file's completed command, file-change and MCP items). Calls older than
@@ -116,7 +117,7 @@ same hook JSON on stdin (`session_id`, `transcript_path`, `cwd`, `hook_event_nam
   `subagent` where they apply). They are read from the session's transcript, each once
   (`recording-messages.json`: transcript file -> bytes read), so a session mapped late gets its earlier messages too.
   Only when the hook input names no transcript is the text taken from the input itself. Not recorded: the model's
-  reasoning, text the agent tool puts into a turn itself, a fork's copied context.
+  private reasoning (which is why the skills ask for a written note before every step), text the agent tool puts into a turn itself, a fork's copied context.
 - **Stop** also commits what the turn left behind: leftover changes in the session's film repo become a commit
   named `WIP`, unless conflicts are unresolved or HEAD is detached. The row in `actions.jsonl` (`event: "Stop"`)
   carries `auto_commit: {sha, files}`, or `auto_commit: null` for a clean tree. It is a safety net, not a way of
