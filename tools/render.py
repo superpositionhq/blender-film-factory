@@ -9,7 +9,9 @@ Frames go to <film>/.local/render/<name>-<NNN>/f<frame>.png (name: --out, defaul
 number, so a picture already looked at is never overwritten; --all uses <name> itself; .local is never committed).
 --sheet N tiles the frames just rendered into <out>/sheet.png, N per row, so one picture shows them all.
 --all renders frame_start..frame_end; with --mp4 it then encodes H.264 (yuv420p, crf 16) at the scene's frame rate,
-scaled to the full film size when --pct is under 100, with --audio muxed in. --resume skips frames that are there.
+scaled to the full film size when --pct is under 100, with --audio muxed in; the video holds exactly those frames
+(frames left in the folder by an earlier, longer render are not taken). --resume keeps the frames already rendered
+from the scene as it is (newer than scene.blend) and renders the rest: a frame from before the last step is redone.
 --clay renders the white-model version (one clay material, plain light): the greybox look and the clay animatic.
 It prints the seconds per frame. Python 3.9+ standard library only; needs Blender and ffmpeg.
 """
@@ -120,7 +122,9 @@ def main():
         cmd = [ff, '-y', '-loglevel', 'error', '-framerate', f'{fps:g}', '-start_number', str(frames[0]), '-i', str(out / 'f%05d.png')]
         if a.audio:
             cmd += ['-i', str((film / a.audio) if not Path(a.audio).is_absolute() else a.audio)]
-        cmd += ['-vf', f'scale={W}:{H}:flags=lanczos', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '16', '-preset', 'slow', '-r', f'{fps:g}']
+        # exactly the film's frames: the image sequence reader would go on into frames an earlier, longer render left
+        cmd += ['-frames:v', str(len(frames)), '-vf', f'scale={W}:{H}:flags=lanczos', '-c:v', 'libx264', '-pix_fmt', 'yuv420p',
+                '-crf', '16', '-preset', 'slow', '-r', f'{fps:g}']
         cmd += (['-c:a', 'aac', '-b:a', '192k', '-shortest'] if a.audio else []) + ['-movflags', '+faststart', str(dst)]
         r = subprocess.run(cmd, capture_output=True, text=True)
         print(f'video: {dst} ({len(frames)} frames, {len(frames) / fps:.2f} s)' if r.returncode == 0 else f'encode failed: {r.stderr.strip()[-400:]}')

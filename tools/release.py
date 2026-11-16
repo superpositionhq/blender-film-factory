@@ -12,7 +12,8 @@ In this order (each line says what it did):
   6. tools/replay.py, tools/shots.py, tools/trajectory.py (the recorded session as one ordered trajectory, in
      <BFF_ROOT>/.recording/<slug>/trajectory/), tools/validate-film.py --release
   7. one commit "Release: film, clay animatic, contact sheet, scene" when the film is VALID for release
-Frames stay in .local/render/final and .local/render/clay; --resume goes on where a render stopped.
+Frames stay in .local/render/final and .local/render/clay; --resume goes on where a render stopped, and renders again
+every frame from before the last step (older than scene.blend), so a fix made since is in the video.
 Check the time per frame with tools/render.py --shots first: 5 s per frame is 6 minutes for a 30 s film at 24 fps.
 Python 3.9+ standard library only; needs Blender and ffmpeg.
 """

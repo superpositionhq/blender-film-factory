@@ -4,6 +4,8 @@
       [clay=1] [skip=1]
 clay=1: one clay override material on everything, the film's lights and volumes off, a soft sun that follows the
 shot camera plus a grey world, no compositing: the white-model version of the same cameras and animation.
+skip=1: a frame already there is kept when it was rendered after the .blend was last saved (by the last step), and
+rendered again when it is older: it shows the scene as it was before that step.
 """
 import os
 import sys
@@ -68,9 +70,10 @@ r.image_settings.file_format = 'PNG'
 r.image_settings.color_mode = 'RGB'
 r.image_settings.compression = 15
 os.makedirs(out, exist_ok=True)
+saved = os.path.getmtime(bpy.data.filepath) if bpy.data.filepath else float('inf')
 for f in frames:
     path = os.path.join(out, 'f%05d.png' % f)
-    if opt.get('skip') == '1' and os.path.exists(path):
+    if opt.get('skip') == '1' and os.path.exists(path) and os.path.getmtime(path) >= saved:
         continue
     sc.frame_set(f)
     if clay_sun and sc.camera:
