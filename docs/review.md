@@ -11,7 +11,7 @@ python3 tools/review.py <film> --reviewer <id> --decision accept|reject --note "
 
 1. `Brief.md` (the script; `storyboard/` if there is one), then `out/film.mp4` (and `out/greybox.mp4` of a final
    film) and `out/contact_sheet.png`.
-2. `python3 tools/trajectory.py <film>`: its three lines (events, coverage of notes and looks, leaks), then
+2. `python3 tools/trajectory.py <film>`: its lines (events, coverage of notes and looks, leaks, secrets redacted), then
    `trajectory.md` in the folder it names. Read the first twenty steps, twenty from the middle and the critique
    rounds.
 3. `Docs/Report.md` (the table of script beats and shots) and `python3 tools/validate-film.py <film> --release`.

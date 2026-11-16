@@ -19,6 +19,10 @@ Reasoning coverage, per step (a call of tools/step.py):
 Leaks: paths are rewritten (<film>, <tools>, <root>, ~) and the tool repo's name is replaced; what is still found
 afterwards is listed: the account name, e-mail addresses, the owner's and the tool repos' names. Agent and model
 names stay: a trajectory is a record of that agent at work.
+Secrets are rewritten too, to <secret:kind>, and counted (secrets_redacted): private keys, the tokens and API keys of
+common services (GitHub, GitLab, AWS, sk-... keys, Stripe, Slack, Google, Hugging Face, npm), JWTs, bearer tokens, the
+password in a URL, and the value of NAME=value or "name": "value" where the name says secret, password, token or API
+key. A secret still found afterwards is a leak.
 --check: exit code 2 when note or looked coverage is under 90 % or a leak is left. Standard library only.
 """
 import argparse
@@ -33,6 +37,30 @@ sys.path.insert(0, str(REPO / 'machine' / 'lib'))
 import bffroot  # noqa: E402
 
 IMG = ('.png', '.jpg', '.jpeg', '.webp')
+# Secrets an export never holds: a match becomes <secret:kind> (only group v when the pattern has one, so a variable's
+# name stays). No pattern reaches past a quote or a backslash, so a scrubbed JSON text is still JSON.
+SECRETS = [(kind, re.compile(p)) for kind, p in (
+    ('private-key', r'-----BEGIN [A-Z0-9 ]*PRIVATE KEY[A-Z ]*-----(?:(?:[^"\\]|\\.)*?-----END [A-Z0-9 ]*PRIVATE KEY'
+                    r'[A-Z ]*-----|(?:[A-Za-z0-9+/=\s]|\\[rn])*)'),
+    ('github-token', r'\b(?:gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{50,})'),
+    ('gitlab-token', r'\bglpat-[A-Za-z0-9_-]{20,}'),
+    ('aws-key', r'\b(?:AKIA|ASIA)[0-9A-Z]{16}\b'),
+    ('api-key', r'\bsk-(?:ant-|proj-)?[A-Za-z0-9_-]{20,}'),
+    ('stripe-key', r'\b[rs]k_(?:live|test)_[A-Za-z0-9]{16,}'),
+    ('slack-token', r'\bxox[abposr]-[A-Za-z0-9-]{10,}'),
+    ('slack-webhook', r'https://hooks\.slack\.com/services/[A-Za-z0-9/_-]{20,}'),
+    ('google-key', r'\bAIza[0-9A-Za-z_-]{35}'),
+    ('huggingface-token', r'\bhf_[A-Za-z0-9]{30,}'),
+    ('npm-token', r'\bnpm_[A-Za-z0-9]{36}'),
+    ('jwt', r'\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}'),
+    ('bearer-token', r'(?i)\bbearer\s+(?P<v>[A-Za-z0-9._~+/-]{20,}=*)'),
+    ('url-password', r'\b[a-z][a-z0-9+.-]*://[^/\s:@\\"\']+:(?P<v>(?!<secret:)[^/\s@\\"\']+)@'),
+    # NAME=value as env files, `env` and shell exports print it (upper case, no spaces: not a script's variable)
+    ('assignment', r'\b[A-Z][A-Z0-9_]*(?:SECRET|PASSWORD|PASSWD|TOKEN|API_?KEY|ACCESS_?KEY|PRIVATE_?KEY|CREDENTIALS?)'
+                   r'[A-Z0-9_]*=(?P<v>(?![$<{*])[^\s\'"\\]{8,})'),
+    ('assignment', r'(?i)\\?"(?:password|passwd|secret|client_secret|api_?key|access_?token|refresh_?token|auth_?token|'
+                   r'private_?key)\\?"\s*:\s*\\?"(?P<v>(?![$<{*])[^"\\\s]{8,})\\?"'),
+)]
 
 
 def load(path):
@@ -48,6 +76,18 @@ def load(path):
 
 def as_text(v):
     return v if isinstance(v, str) else json.dumps(v, ensure_ascii=False)
+
+
+def redact(text, kinds):
+    """The text with every secret replaced by <secret:kind>; the kinds replaced are added to the set `kinds`."""
+    for kind, rx in SECRETS:
+        def put(m, kind=kind, rx=rx):
+            kinds.add(kind)
+            if 'v' not in rx.groupindex:
+                return f'<secret:{kind}>'
+            return m.string[m.start():m.start('v')] + f'<secret:{kind}>' + m.string[m.end('v'):m.end()]
+        text = rx.sub(put, text)
+    return text
 
 
 def main():
@@ -75,15 +115,15 @@ def main():
     sessions = set(a.session or []) or {r['session_id'] for r in actions if r.get('tool') and is_build(r)} \
         or {r['session_id'] for r in actions}
 
-    # paths and names are rewritten in every text of the export
+    # paths, names and secrets are rewritten in every text of the export
     home = Path.home()
     swaps = sorted({(str(film), '<film>'), (str(rec), '<recording>'), (str(REPO), '<tools>'), (str(bffroot.repo()), '<tools>'),
                     (str(root), '<root>'), (str(home), '~')}, key=lambda kv: -len(kv[0]))
-    def scrub(text):
+    def scrub(text, kinds=None):
         for full, token in swaps:
             text = text.replace(full, token).replace(full.replace('/', '\\'), token)
         text = re.sub(r'(?i)blender[-_ ]?film[-_ ]?factory', 'film-tools', text)
-        return re.sub(r'~/\.(claude|codex|agents)\b', '~/.agent', text)
+        return redact(re.sub(r'~/\.(claude|codex|agents)\b', '~/.agent', text), set() if kinds is None else kinds)
 
     events = []
     for m in messages:
@@ -140,15 +180,18 @@ def main():
             last = k
 
     # scrub, then look for what is left
-    leaks = []
+    leaks, secrets = [], []
     account = home.name
     for ev in events:
+        kinds = set()
         for key in ('text', 'result'):
             if key in ev:
-                ev[key] = scrub(ev[key])
-        ev['input'] = json.loads(scrub(json.dumps(ev['input'], ensure_ascii=False))) if 'input' in ev else None
+                ev[key] = scrub(ev[key], kinds)
+        ev['input'] = json.loads(scrub(json.dumps(ev['input'], ensure_ascii=False), kinds)) if 'input' in ev else None
         if ev['input'] is None:
             del ev['input']
+        if kinds:
+            secrets.append(dict(event=ev['i'], kinds=sorted(kinds)))
         blob = json.dumps(ev, ensure_ascii=False)
         # agent and model names belong in a trajectory (it is a record of that agent at work); the owner's and the
         # tool repos' names do not
@@ -156,6 +199,7 @@ def main():
         if len(account) >= 4 and re.search(r'(?i)(?<![a-z0-9])' + re.escape(account) + r'(?![a-z0-9])', blob):
             found.add('the account name')
         found |= set(re.findall(r'[\w.+-]+@[\w-]+\.[\w.-]+', blob))
+        found |= {f'a secret ({kind})' for kind, rx in SECRETS if rx.search(blob)}
         if found:
             leaks.append(dict(event=ev['i'], found=sorted(found)))
 
@@ -185,7 +229,8 @@ def main():
                     prompts=sum(e['type'] == 'user' for e in events), replies=sum(e['type'] == 'assistant' for e in events),
                     tool_calls=sum(e['type'] == 'tool' for e in events), pictures_opened=sum('image' in e for e in events),
                     pictures_missing=missing_images, step_calls=steps, note_coverage=cov(noted), looked_coverage=cov(looked),
-                    weak_steps=weak[:200], leaks=leaks[:200], leak_events=len(leaks))
+                    weak_steps=weak[:200], leaks=leaks[:200], leak_events=len(leaks), secrets_redacted=len(secrets),
+                    secret_events=secrets[:200])
     (out / 'analysis.json').write_text(json.dumps(analysis, indent=1), encoding='utf-8')
     bad = bool(leaks) or missing_images or (steps and (cov(noted) < 0.9 or cov(looked) < 0.9))
     if a.json:
@@ -195,6 +240,7 @@ def main():
               f"{analysis['pictures_opened']} pictures opened, {missing_images} missing) from {len(sessions)} session(s)")
         print(f"steps {steps}: a note before {noted} ({cov(noted)}), a picture looked at before {looked} ({cov(looked)})")
         print(f"leaks left in {len(leaks)} event(s)" + (': ' + ', '.join(sorted({x for l in leaks for x in l['found']})[:12]) if leaks else ''))
+        print(f"secrets redacted in {len(secrets)} event(s)" + (': ' + ', '.join(sorted({k for s in secrets for k in s['kinds']})) if secrets else ''))
         print(f'{"TRAJECTORY OK" if not bad else "TRAJECTORY NEEDS WORK"}: {out}')
     sys.exit(2 if a.check and bad else 0)
 

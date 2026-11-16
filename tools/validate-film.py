@@ -270,7 +270,7 @@ def main():
             t = json.loads(r.stdout.strip().splitlines()[-1])
         except Exception:
             t = dict(ok=False, error='tools/trajectory.py failed: ' + (r.stderr or r.stdout)[-200:])
-        rep.info['trajectory'] = {k: t.get(k) for k in ('events', 'step_calls', 'note_coverage', 'looked_coverage', 'pictures_missing', 'leak_events')}
+        rep.info['trajectory'] = {k: t.get(k) for k in ('events', 'step_calls', 'note_coverage', 'looked_coverage', 'pictures_missing', 'leak_events', 'secrets_redacted')}
         if not t.get('ok'):
             rep.warn('trajectory', t.get('error', 'no recording'))
         else:
@@ -281,7 +281,9 @@ def main():
             if t['pictures_missing']:
                 rep.error('trajectory', f"{t['pictures_missing']} picture(s) the session opened are gone (they are part of the record: never delete .local/render before release)")
             if t['leak_events']:
-                rep.error('trajectory', f"{t['leak_events']} event(s) of the recording hold a name or address that must not ship (tools/trajectory.py lists them)")
+                rep.error('trajectory', f"{t['leak_events']} event(s) of the recording hold a name, address or secret that must not ship (tools/trajectory.py lists them)")
+            if t.get('secrets_redacted'):
+                rep.warn('trajectory', f"{t['secrets_redacted']} event(s) of the recording held a secret (redacted in the export; analysis.json lists them): the session saw it, so rotate it")
         rj = film / '.local' / 'replay' / 'result.json'
         if not rj.is_file() or not json.loads(rj.read_text(encoding='utf-8')).get('ok'):
             rep.error('release', 'no passing replay: run tools/replay.py (it must say REPLAY OK)')

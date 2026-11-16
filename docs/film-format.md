@@ -66,8 +66,9 @@ the default file; nothing linked or loaded from outside the film.
 `tools/trajectory.py <film>` writes `<BFF_ROOT>/.recording/<slug>/trajectory/`: `trajectory.jsonl`
 (`film-trajectory/v1`, one event per line in time order: `i, time, type` (`user` / `assistant` / `tool`), `text`, or
 `tool, input, result, error`, and `image` for a picture the model opened), `images/`, `trajectory.md` and
-`analysis.json` (events, step calls, `note_coverage`, `looked_coverage`, missing pictures, leaks). Tool results are
-kept whole. Paths are rewritten to `<film>`, `<tools>`, `<root>` and `~`.
+`analysis.json` (events, step calls, `note_coverage`, `looked_coverage`, missing pictures, leaks, secrets redacted).
+Tool results are kept whole. Paths are rewritten to `<film>`, `<tools>`, `<root>` and `~`, and secrets (keys, tokens,
+passwords) to `<secret:kind>`.
 
 ## Release checks (`--release`)
 
@@ -75,8 +76,8 @@ kept whole. Paths are rewritten to `<film>`, `<tools>`, `<root>` and `~`.
 near-uniform frame; `out/animatic_clay.mp4` has the same frame count and rate; the contact sheet, the scene copy,
 the critique and the report exist; `shotlist.json` holds (`tools/shots.py`); the last `tools/replay.py` said
 `REPLAY OK`; a final film has `out/greybox.mp4`; a storyboard input has its pages; and the record holds: a note and
-a look at a picture before at least 90 % of the steps, every opened picture still there, no account name, address
-or owner's name left in it. Counts of the scene (triangles, materials, lights) are reported as warnings only: a
+a look at a picture before at least 90 % of the steps, every opened picture still there, no account name, address,
+owner's name or secret left in it (a redacted secret is a warning: rotate it). Counts of the scene (triangles, materials, lights) are reported as warnings only: a
 person judges the picture ([review.md](review.md)).
 
 ## Names
