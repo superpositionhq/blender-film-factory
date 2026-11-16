@@ -21,8 +21,9 @@ afterwards is listed: the account name, e-mail addresses, the owner's and the to
 names stay: a trajectory is a record of that agent at work.
 Secrets are rewritten too, to <secret:kind>, and counted (secrets_redacted): private keys, the tokens and API keys of
 common services (GitHub, GitLab, AWS, sk-... keys, Stripe, Slack, Google, Hugging Face, npm), JWTs, bearer tokens, the
-password in a URL, and the value of NAME=value or "name": "value" where the name says secret, password, token or API
-key. A secret still found afterwards is a leak.
+password in a URL, the value of NAME=value (bare or quoted) where the name says secret, password, token or API key,
+and the value of such a key in JSON. A JSON text (a tool input or result as recorded) is parsed and its values are
+redacted whole, spaces and all. A secret still found afterwards is a leak.
 --check: exit code 2 when note or looked coverage is under 90 % or a leak is left. Standard library only.
 """
 import argparse
@@ -38,7 +39,11 @@ import bffroot  # noqa: E402
 
 IMG = ('.png', '.jpg', '.jpeg', '.webp')
 # Secrets an export never holds: a match becomes <secret:kind> (only group v when the pattern has one, so a variable's
-# name stays). No pattern reaches past a quote or a backslash, so a scrubbed JSON text is still JSON.
+# name stays). The patterns read plain text: a JSON text is parsed and redacted value by value (redact_text).
+_NAME = (r'\b(?:[A-Z][A-Z0-9_]*)?(?:SECRET|PASSWORD|PASSWD|PASSPHRASE|TOKEN|API_?KEY|ACCESS_?KEY|PRIVATE_?KEY|'
+         r'CREDENTIALS?)[A-Z0-9_]*=')
+_KEY = r'(?:password|passwd|passphrase|secret|token|api_?key|access_?key|private_?key|credentials?)'
+SECRET_KEY = re.compile(r'(?i)' + _KEY + r'$')   # a key that names a secret: password, api_key, clientSecret, ...
 SECRETS = [(kind, re.compile(p)) for kind, p in (
     ('private-key', r'-----BEGIN [A-Z0-9 ]*PRIVATE KEY[A-Z ]*-----(?:(?:[^"\\]|\\.)*?-----END [A-Z0-9 ]*PRIVATE KEY'
                     r'[A-Z ]*-----|(?:[A-Za-z0-9+/=\s]|\\[rn])*)'),
@@ -56,10 +61,12 @@ SECRETS = [(kind, re.compile(p)) for kind, p in (
     ('bearer-token', r'(?i)\bbearer\s+(?P<v>[A-Za-z0-9._~+/-]{20,}=*)'),
     ('url-password', r'\b[a-z][a-z0-9+.-]*://[^/\s:@\\"\']+:(?P<v>(?!<secret:)[^/\s@\\"\']+)@'),
     # NAME=value as env files, `env` and shell exports print it (upper case, no spaces: not a script's variable)
-    ('assignment', r'\b[A-Z][A-Z0-9_]*(?:SECRET|PASSWORD|PASSWD|TOKEN|API_?KEY|ACCESS_?KEY|PRIVATE_?KEY|CREDENTIALS?)'
-                   r'[A-Z0-9_]*=(?P<v>(?![$<{*])[^\s\'"\\]{8,})'),
-    ('assignment', r'(?i)\\?"(?:password|passwd|secret|client_secret|api_?key|access_?token|refresh_?token|auth_?token|'
-                   r'private_?key)\\?"\s*:\s*\\?"(?P<v>(?![$<{*])[^"\\\s]{8,})\\?"'),
+    ('assignment', _NAME + r'"(?P<v>(?![$<{*])(?:[^"\\\n]|\\.)+)"'),
+    ('assignment', _NAME + r"'(?P<v>(?![$<{*])[^'\n]+)'"),
+    ('assignment', _NAME + r'(?P<v>(?![$<{*"\'])[^\s\'"\\]{8,})'),
+    # "name": "value" in a JSON text inside a text (a file's content, a prompt), or escaped inside a command
+    ('assignment', r'(?i)"[A-Za-z0-9_-]*' + _KEY + r'"\s*:\s*"(?P<v>(?![$<{*])(?:[^"\\]|\\.)+)"'),
+    ('assignment', r'(?i)\\"[A-Za-z0-9_-]*' + _KEY + r'\\"\s*:\s*\\"(?P<v>(?![$<{*])(?:[^"\\]|\\[^"])+)\\"'),
 )]
 
 
@@ -78,16 +85,47 @@ def as_text(v):
     return v if isinstance(v, str) else json.dumps(v, ensure_ascii=False)
 
 
-def redact(text, kinds):
-    """The text with every secret replaced by <secret:kind>; the kinds replaced are added to the set `kinds`."""
+def redact(value, kinds):
+    """`value` (a text, or lists and dicts of them) with every secret replaced by <secret:kind>; the kinds replaced are
+    added to the set `kinds`. A dict value whose key names a secret (password, api_key, clientSecret, ...) goes whole."""
+    if isinstance(value, list):
+        return [redact(v, kinds) for v in value]
+    if isinstance(value, dict):
+        out = {}
+        for k, v in value.items():
+            if isinstance(v, str) and SECRET_KEY.search(str(k)) and v.strip() and not re.match(r'[$<{*]', v):
+                kinds.add('assignment')
+                out[k] = '<secret:assignment>'
+            else:
+                out[k] = redact(v, kinds)
+        return out
+    if not isinstance(value, str):
+        return value
     for kind, rx in SECRETS:
         def put(m, kind=kind, rx=rx):
             kinds.add(kind)
             if 'v' not in rx.groupindex:
                 return f'<secret:{kind}>'
             return m.string[m.start():m.start('v')] + f'<secret:{kind}>' + m.string[m.end('v'):m.end()]
-        text = rx.sub(put, text)
-    return text
+        value = rx.sub(put, value)
+    return value
+
+
+def redact_text(text, kinds):
+    """A text with its secrets redacted. A JSON text (a tool input or result as recorded) is parsed and redacted value
+    by value, then written again; when it holds no secret it is returned as it was."""
+    try:
+        data = json.loads(text)
+    except ValueError:
+        data = None
+    if not isinstance(data, (dict, list)):
+        return redact(text, kinds)
+    found = set()
+    data = redact(data, found)
+    if not found:
+        return text
+    kinds |= found
+    return json.dumps(data, ensure_ascii=False, separators=(',', ':'))
 
 
 def main():
@@ -123,7 +161,7 @@ def main():
         for full, token in swaps:
             text = text.replace(full, token).replace(full.replace('/', '\\'), token)
         text = re.sub(r'(?i)blender[-_ ]?film[-_ ]?factory', 'film-tools', text)
-        return redact(re.sub(r'~/\.(claude|codex|agents)\b', '~/.agent', text), set() if kinds is None else kinds)
+        return redact_text(re.sub(r'~/\.(claude|codex|agents)\b', '~/.agent', text), set() if kinds is None else kinds)
 
     events = []
     for m in messages:
@@ -199,7 +237,9 @@ def main():
         if len(account) >= 4 and re.search(r'(?i)(?<![a-z0-9])' + re.escape(account) + r'(?![a-z0-9])', blob):
             found.add('the account name')
         found |= set(re.findall(r'[\w.+-]+@[\w-]+\.[\w.-]+', blob))
-        found |= {f'a secret ({kind})' for kind, rx in SECRETS if rx.search(blob)}
+        left = set()
+        redact(ev, left)   # what redaction would still find in any field of the event
+        found |= {f'a secret ({kind})' for kind in left}
         if found:
             leaks.append(dict(event=ev['i'], found=sorted(found)))
 
