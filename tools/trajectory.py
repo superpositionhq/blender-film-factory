@@ -278,7 +278,7 @@ def main():
         # an address ends in a name, not a number (python@3.14 is a package version)
         # (an agent's own no-reply address, as in a commit trailer, stays like the agent's name)
         found |= {m for m in re.findall(r'[\w.+-]+@[\w-]+(?:\.[\w-]+)*\.[A-Za-z]{2,}\b', blob)
-                  if not re.fullmatch(r'(?i)no-?reply@(anthropic|openai)\.com', m)}
+                  if not re.fullmatch(r'(?i)\w*no-?reply@(anthropic|openai)\.com', m)}   # \w*: an escaped \n before it
         left = set()
         redact(ev, left)   # what redaction would still find in any field of the event
         found |= {f'a secret ({kind})' for kind in left}
