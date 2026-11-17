@@ -17,9 +17,12 @@ Sessions: those that ran tools/step.py or templates/new-film.py for this film (o
 Observable workflow coverage, per step (a call of tools/step.py):
   note    the model wrote at least one sentence (40 characters) after the previous step and before this one
   looked  the model opened a picture after the previous step and before this one (not asked of the first two steps)
-Leaks: paths are rewritten (<film>, <tools>, <root>, ~) and the tool repo's name is replaced; what is still found
-afterwards is listed: the account name, e-mail addresses, the owner's and the tool repos' names. Agent and model
-names stay: a trajectory is a record of that agent at work.
+A step without a note of its own takes its row of <film>/notes-backfill.jsonl (tools/backfill-notes.py): the note is
+placed before the step's call, marked "backfilled" with the time it was written, and counted apart
+(notes_backfilled, note_coverage_live).
+Leaks: paths are rewritten (<film>, <tools>, <root>, ~), the owner's and the tool repos' names (<name>), the
+organisation (<org>) and the account name (<account>) are replaced; what is still found afterwards is listed, e-mail
+addresses among it. Agent and model names stay: a trajectory is a record of that agent at work.
 Secrets are rewritten too, to <secret:kind>, and counted (secrets_redacted): private keys, the tokens and API keys of
 common services (GitHub, GitLab, AWS, sk-... keys, Stripe, Slack, Google, Hugging Face, npm), JWTs, bearer tokens, the
 password in a URL, the value of NAME=value (bare or quoted) where the name says secret, password, token or API key,
@@ -158,11 +161,25 @@ def main():
     home = Path.home()
     swaps = sorted({(str(film), '<film>'), (str(rec), '<recording>'), (str(REPO), '<tools>'), (str(bffroot.repo()), '<tools>'),
                     (str(root), '<root>'), (str(home), '~')}, key=lambda kv: -len(kv[0]))
+    account = home.name
+    # names an export never holds: the owner's and the tool repos' (the agent's and the model's stay), the account
+    names = [p for p in bffroot.BANNED if not re.search(r'claude|anthropic|openai', p)]
+    org = bffroot.org()
+
     def scrub(text, kinds=None):
         for full, token in swaps:
             text = text.replace(full, token).replace(full.replace('/', '\\'), token)
         text = re.sub(r'(?i)blender[-_ ]?film[-_ ]?factory', 'film-tools', text)
+        if org:
+            text = re.sub(r'(?i)' + re.escape(org), '<org>', text)
+        for p in names:
+            text = re.sub(p + r'\w*', '<name>', text)
+        if len(account) >= 4:
+            text = re.sub(r'(?i)(?<![a-z0-9])' + re.escape(account) + r'(?![a-z0-9])', '<account>', text)
         return redact_text(re.sub(r'~/\.(claude|codex|agents)\b', '~/.agent', text), set() if kinds is None else kinds)
+
+    # notes added after the session (tools/backfill-notes.py): step id -> row
+    backfill = {r.get('step'): r for r in load(film / 'notes-backfill.jsonl') if r.get('step') and r.get('note')}
 
     events = []
     for m in messages:
@@ -184,6 +201,25 @@ def main():
             ev['result'] = res      # whole: the record holds what the model saw
         events.append(ev)
     events.sort(key=lambda e: e['time'])
+
+    def is_step(e):
+        return e['type'] == 'tool' and e['tool'] in ('Bash', 'shell') and 'step.py' in as_text(e['input'])
+
+    # a step that had no note when it ran takes its backfilled note, placed before the call and marked as such
+    placed, since, backfilled = [], [], 0
+    for ev in events:
+        if is_step(ev):
+            m = re.search(r'\\?"step\\?": \\?"(\d{4}-[a-z0-9-]+)', ev.get('result') or '')
+            row = backfill.get(m[1]) if m else None
+            if row and not any(e['type'] == 'assistant' and len(e['text'].strip()) >= 40 for e in since):
+                placed.append(dict(time=ev['time'], type='assistant', text=str(row['note']), backfilled=True,
+                                   written=row.get('written')))
+                backfilled += 1
+            since = []
+        else:
+            since.append(ev)
+        placed.append(ev)
+    events = placed
 
     out.mkdir(parents=True, exist_ok=True)
     (out / 'images').mkdir(exist_ok=True)
@@ -210,7 +246,7 @@ def main():
     # action-note and image-inspection coverage
     steps, last, noted, looked, weak = 0, -1, 0, 0, []
     for k, ev in enumerate(events):
-        if ev['type'] == 'tool' and ev['tool'] in ('Bash', 'shell') and 'step.py' in as_text(ev['input']):
+        if is_step(ev):
             steps += 1
             between = events[last + 1:k]
             n_ok = any(e['type'] == 'assistant' and len(e['text'].strip()) >= 40 for e in between)
@@ -223,7 +259,6 @@ def main():
 
     # scrub, then look for what is left
     leaks, secrets = [], []
-    account = home.name
     for ev in events:
         kinds = set()
         for key in ('text', 'result'):
@@ -240,7 +275,8 @@ def main():
         found = {x for x in bffroot.banned_in(blob) if not re.fullmatch(r'(?i)claude|anthropic|openai', x)}
         if len(account) >= 4 and re.search(r'(?i)(?<![a-z0-9])' + re.escape(account) + r'(?![a-z0-9])', blob):
             found.add('the account name')
-        found |= set(re.findall(r'[\w.+-]+@[\w-]+\.[\w.-]+', blob))
+        # an address ends in a name, not a number (python@3.14 is a package version)
+        found |= set(re.findall(r'[\w.+-]+@[\w-]+(?:\.[\w-]+)*\.[A-Za-z]{2,}\b', blob))
         left = set()
         redact(ev, left)   # what redaction would still find in any field of the event
         found |= {f'a secret ({kind})' for kind in left}
@@ -255,7 +291,8 @@ def main():
         if ev['type'] == 'user':
             md.append(f"\n---\n\n**[{ev['i']}] Person**\n\n{ev['text']}\n")
         elif ev['type'] == 'assistant':
-            md.append(f"\n**[{ev['i']}] Model**\n\n{ev['text']}\n")
+            who = 'Model (note added after the session)' if ev.get('backfilled') else 'Model'
+            md.append(f"\n**[{ev['i']}] {who}**\n\n{ev['text']}\n")
         elif ev['type'] == 'thinking':
             body = ev['text'] if ev['text'] else '(saved without readable text)'
             md.append(f"\n*[{ev['i']}] Reasoning summary*\n\n> " + body.replace('\n', '\n> ') + '\n')
@@ -278,6 +315,7 @@ def main():
                     reasoning_summaries=sum(e['type'] == 'thinking' and bool(e['text']) for e in events),
                     reasoning_redacted=sum(e['type'] == 'thinking' and not e['text'] for e in events), pictures_opened=sum('image' in e for e in events),
                     pictures_missing=missing_images, step_calls=steps, note_coverage=cov(noted), looked_coverage=cov(looked),
+                    notes_backfilled=backfilled, note_coverage_live=cov(noted - backfilled),
                     weak_steps=weak[:200], leaks=leaks[:200], leak_events=len(leaks), secrets_redacted=len(secrets),
                     secret_events=secrets[:200])
     (out / 'analysis.json').write_text(json.dumps(analysis, indent=1), encoding='utf-8')

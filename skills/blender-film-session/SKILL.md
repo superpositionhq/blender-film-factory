@@ -82,6 +82,11 @@ python3 <BFF_ROOT>/blender-film-factory/tools/step.py <BFF_ROOT>/films/<slug> "<
 1. **Give a short progress update** naming the visible change about to be made.
    Example: `The chest is still a plain box. Next I will add three rows of drawer fronts visible in shot 3.`
    After inspecting a fix, report whether the rendered issue is resolved. Describe the work as it happens.
+   **The note comes first in every kind of session**: a background, quiet or "final message only" mode does not
+   switch it off, since the recording takes the note from what you write between tool calls.
+   Notes that were missed all the same: `python3 .../tools/backfill-notes.py <film>` writes
+   `notes-backfill.jsonl` from each step's recorded subject and reason; the trajectory shows those notes marked
+   as added after the session and counts them apart. Commit the file with one `log.gap` row saying what was missed.
 2. **Write the step script with your file tool**, never with a heredoc, `sed -i` or a Python rewrite (a file
    tool's call is recorded with the exact text). `build/<NNN>_<name>.py`, numbered in the order written, starting
    with a comment that says what the step does, then

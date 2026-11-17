@@ -270,10 +270,12 @@ def main():
             t = json.loads(r.stdout.strip().splitlines()[-1])
         except Exception:
             t = dict(ok=False, error='tools/trajectory.py failed: ' + (r.stderr or r.stdout)[-200:])
-        rep.info['trajectory'] = {k: t.get(k) for k in ('events', 'step_calls', 'note_coverage', 'looked_coverage', 'pictures_missing', 'leak_events', 'secrets_redacted')}
+        rep.info['trajectory'] = {k: t.get(k) for k in ('events', 'step_calls', 'note_coverage', 'note_coverage_live', 'notes_backfilled', 'looked_coverage', 'pictures_missing', 'leak_events', 'secrets_redacted')}
         if not t.get('ok'):
             rep.warn('trajectory', t.get('error', 'no recording'))
         else:
+            if t.get('notes_backfilled'):
+                rep.warn('trajectory', f"{t['notes_backfilled']} step note(s) were added after the session (notes-backfill.jsonl); written at the time: {t.get('note_coverage_live', 0):.0%} of the steps")
             if t['step_calls'] and t['note_coverage'] < 0.9:
                 rep.error('trajectory', f"a note before only {t['note_coverage']:.0%} of the steps (90 % needed): say what the picture shows and what comes next before every step")
             if t['step_calls'] and t['looked_coverage'] < 0.9:
