@@ -1,0 +1,51 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"{{PYTHON}}\" \"{{HOOKS_DIR}}/record-film-action.py\" --agent codex",
+            "timeout": 60,
+            "async": true
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"{{PYTHON}}\" \"{{HOOKS_DIR}}/record-film-action.py\" --agent codex --stop",
+            "timeout": 120
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"{{PYTHON}}\" \"{{HOOKS_DIR}}/record-film-action.py\" --agent codex --messages",
+            "timeout": 60,
+            "async": true
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"{{PYTHON}}\" \"{{HOOKS_DIR}}/record-film-action.py\" --agent codex --messages",
+            "timeout": 60
+          }
+        ]
+      }
+    ]
+  }
+}

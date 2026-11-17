@@ -1,0 +1,13 @@
+# scratch: checkpoints, test renders, final frames, replay
+/.local/
+# the scene is rebuilt by build/order.txt; the finished one is committed as out/scene.blend
+/scene.blend
+/scene.blend1
+/_replay_work.blend*
+__pycache__/
+*.pyc
+.DS_Store
+*.log
+!steps/**/stdout.log
+.env
+.env.*
