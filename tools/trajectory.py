@@ -276,7 +276,9 @@ def main():
         if len(account) >= 4 and re.search(r'(?i)(?<![a-z0-9])' + re.escape(account) + r'(?![a-z0-9])', blob):
             found.add('the account name')
         # an address ends in a name, not a number (python@3.14 is a package version)
-        found |= set(re.findall(r'[\w.+-]+@[\w-]+(?:\.[\w-]+)*\.[A-Za-z]{2,}\b', blob))
+        # (an agent's own no-reply address, as in a commit trailer, stays like the agent's name)
+        found |= {m for m in re.findall(r'[\w.+-]+@[\w-]+(?:\.[\w-]+)*\.[A-Za-z]{2,}\b', blob)
+                  if not re.fullmatch(r'(?i)no-?reply@(anthropic|openai)\.com', m)}
         left = set()
         redact(ev, left)   # what redaction would still find in any field of the event
         found |= {f'a secret ({kind})' for kind in left}
