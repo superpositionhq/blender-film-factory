@@ -129,6 +129,8 @@ def main():
 
     # film/: the tracked files as they are in the work tree
     rc, listed = git(film, 'ls-files', '-z')
+    # notes written after a session are not part of the record (older films may still track the file)
+    listed = '\0'.join(f for f in listed.split('\0') if f != 'notes-backfill.jsonl') if not rc else listed
     files = [f for f in listed.split('\0') if f]
     pointers = 0
     for rel in files:
@@ -197,7 +199,7 @@ def main():
               f"{ana.get('replies')} replies, {ana.get('reasoning_summaries')} reasoning summaries, {ana.get('tool_calls')} tool calls), "
               f"{ana.get('pictures_opened')} opened pictures in `images/`, `analysis.json` |")
     md += ['', '## Record', '',
-           f"- steps called: {ana.get('step_calls')}; a note before {ana.get('note_coverage')}, a picture looked at before {ana.get('looked_coverage')} (shares of the steps)"]
+           f"- steps called: {ana.get('step_calls')}; a note or reasoning summary before {ana.get('note_coverage')}, a written reply before {ana.get('reply_coverage')}, a picture looked at before {ana.get('looked_coverage')} (shares of the steps)"]
     md += [f"- leaks left in the export: {ana.get('leak_events')}; secrets redacted: {ana.get('secrets_redacted')}",
            '- not packed: the raw recording, which is not scrubbed', '',
            'File formats: `film/README.md`, and the film format page of the tools that made it.', '']

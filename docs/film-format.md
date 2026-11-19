@@ -15,7 +15,6 @@ A film is one git repo, `<BFF_ROOT>/films/<slug>`, made by `templates/new-film.p
 | `build/` | step scripts `NNN_name.py`, `kit.py`, `mannequin.py`, `order.txt` (the scripts that ran, in order), `data/` (baked numbers a step reads) | as built |
 | `steps/<NNNN>-<name>/` | `script.py` (the code that ran), `state.json`, `preview.png`, `result.json`, `stdout.log` | one per step |
 | `workflow.jsonl` | one row per operation | as built |
-| `notes-backfill.jsonl` | only when step notes were missed: one row per step (`film-note-backfill/v1`: `step, note, written, source`), written by `tools/backfill-notes.py` from the step's recorded subject and reason | after the session |
 | `textures/` | images painted by step scripts, loaded as `//textures/...` | as built |
 | `Docs/Critique.md` | `## Round <n>` sections: shot, what is weak, the fix | critique rounds |
 | `shotlist.json` | one entry per shot (below) | before release |
@@ -71,9 +70,9 @@ agent saved), or
 `analysis.json` (events, step calls, `note_coverage`, `looked_coverage`, missing pictures, leaks, secrets redacted).
 Tool results are kept whole. Paths are rewritten to `<film>`, `<tools>`, `<root>` and `~`, the owner's and the tool
 repos' names to `<name>`, the organisation to `<org>`, the machine's account name to `<account>`, and secrets (keys,
-tokens, passwords) to `<secret:kind>`. A step without a note of its own takes its row of `notes-backfill.jsonl`: an
-`assistant` event before the step's call with `"backfilled": true` and the time it was `written`; `analysis.json`
-counts them (`notes_backfilled`) and gives the coverage without them (`note_coverage_live`).
+tokens, passwords) to `<secret:kind>`. `note_coverage` is the share of steps with a reply or a
+saved reasoning summary before them; `reply_coverage` counts replies alone. Nothing is added to a record after
+the session.
 
 ## The dataset archive
 

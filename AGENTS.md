@@ -119,8 +119,7 @@ Rules for agents working in this repository. Background is in `docs/`; keep this
 - No names of people, companies, customers or machines here, no account names, no machine paths
   (`/Users/<name>/...`, `C:\Users\<name>\...`), no plans or prices. Write paths as `<BFF_ROOT>/...`.
 - Step notes briefly identify the observed issue, intended action and expected visible result when the step happens.
-  A note that was not written then is added afterwards with `tools/backfill-notes.py`, which builds it from what
-  the step did record and marks it as added after the session.
+  Nothing is added to a record afterwards.
 - Never edit a film's recording (`<BFF_ROOT>/.recording/<slug>/`) or its `steps/` folders by hand: the hooks and
   the step tool own them.
 

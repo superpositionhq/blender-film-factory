@@ -15,11 +15,10 @@ hooks) and writes, to --out (default <BFF_ROOT>/.recording/<slug>/trajectory/):
 Sessions: those that ran tools/step.py or templates/new-film.py for this film (or --session).
 
 Observable workflow coverage, per step (a call of tools/step.py):
-  note    the model wrote at least one sentence (40 characters) after the previous step and before this one
+  note    after the previous step and before this one there is at least one sentence (40 characters) from the
+          model: a reply it wrote, or a reasoning summary the agent saved (note_coverage); replies alone are
+          counted too (reply_coverage)
   looked  the model opened a picture after the previous step and before this one (not asked of the first two steps)
-A step without a note of its own takes its row of <film>/notes-backfill.jsonl (tools/backfill-notes.py): the note is
-placed before the step's call, marked "backfilled" with the time it was written, and counted apart
-(notes_backfilled, note_coverage_live).
 Leaks: paths are rewritten (<film>, <tools>, <root>, ~), the owner's and the tool repos' names (<name>), the
 organisation (<org>) and the account name (<account>) are replaced; what is still found afterwards is listed, e-mail
 addresses among it. Agent and model names stay: a trajectory is a record of that agent at work.
@@ -184,9 +183,6 @@ def main():
             text = re.sub(r'(?i)(?:(?<![a-z0-9])|(?<=\\[nrt]))' + re.escape(account) + r'(?![a-z0-9])', '<account>', text)
         return redact_text(re.sub(r'~/\.(claude|codex|agents)\b', '~/.agent', text), set() if kinds is None else kinds)
 
-    # notes added after the session (tools/backfill-notes.py): step id -> row
-    backfill = {r.get('step'): r for r in load(film / 'notes-backfill.jsonl') if r.get('step') and r.get('note')}
-
     events = []
     for m in messages:
         if m.get('session_id') in sessions and not m.get('subagent') and ((m.get('text') or '').strip() or m.get('redacted')):
@@ -211,22 +207,6 @@ def main():
     def is_step(e):
         return e['type'] == 'tool' and e['tool'] in ('Bash', 'shell') and 'step.py' in as_text(e['input'])
 
-    # a step that had no note when it ran takes its backfilled note, placed before the call and marked as such
-    placed, since, backfilled = [], [], 0
-    for ev in events:
-        if is_step(ev):
-            m = re.search(r'\\?"step\\?": \\?"(\d{4}-[a-z0-9-]+)', ev.get('result') or '')
-            row = backfill.get(m[1]) if m else None
-            if row and not any(e['type'] == 'assistant' and len(e['text'].strip()) >= 40 for e in since):
-                placed.append(dict(time=ev['time'], type='assistant', text=str(row['note']), backfilled=True,
-                                   written=row.get('written')))
-                backfilled += 1
-            since = []
-        else:
-            since.append(ev)
-        placed.append(ev)
-    events = placed
-
     out.mkdir(parents=True, exist_ok=True)
     (out / 'images').mkdir(exist_ok=True)
     missing_images = 0
@@ -250,12 +230,15 @@ def main():
                 missing_images += 1
 
     # action-note and image-inspection coverage
-    steps, last, noted, looked, weak = 0, -1, 0, 0, []
+    steps, last, noted, looked, weak, replied = 0, -1, 0, 0, [], 0
     for k, ev in enumerate(events):
         if is_step(ev):
             steps += 1
             between = events[last + 1:k]
-            n_ok = any(e['type'] == 'assistant' and len(e['text'].strip()) >= 40 for e in between)
+            r_ok = any(e['type'] == 'assistant' and len(e['text'].strip()) >= 40 for e in between)
+            # the agent's saved reasoning summary is the model's own account of the step, written as it worked
+            n_ok = r_ok or any(e['type'] == 'thinking' and len(e['text'].strip()) >= 40 for e in between)
+            replied += r_ok
             l_ok = steps <= 2 or any(e['type'] == 'tool' and 'image' in e for e in between)
             noted += n_ok
             looked += l_ok
@@ -299,8 +282,7 @@ def main():
         if ev['type'] == 'user':
             md.append(f"\n---\n\n**[{ev['i']}] Person**\n\n{ev['text']}\n")
         elif ev['type'] == 'assistant':
-            who = 'Model (note added after the session)' if ev.get('backfilled') else 'Model'
-            md.append(f"\n**[{ev['i']}] {who}**\n\n{ev['text']}\n")
+            md.append(f"\n**[{ev['i']}] Model**\n\n{ev['text']}\n")
         elif ev['type'] == 'thinking':
             body = ev['text'] if ev['text'] else '(saved without readable text)'
             md.append(f"\n*[{ev['i']}] Reasoning summary*\n\n> " + body.replace('\n', '\n> ') + '\n')
@@ -323,7 +305,7 @@ def main():
                     reasoning_summaries=sum(e['type'] == 'thinking' and bool(e['text']) for e in events),
                     reasoning_redacted=sum(e['type'] == 'thinking' and not e['text'] for e in events), pictures_opened=sum('image' in e for e in events),
                     pictures_missing=missing_images, step_calls=steps, note_coverage=cov(noted), looked_coverage=cov(looked),
-                    notes_backfilled=backfilled, note_coverage_live=cov(noted - backfilled),
+                    reply_coverage=cov(replied),
                     weak_steps=weak[:200], leaks=leaks[:200], leak_events=len(leaks), secrets_redacted=len(secrets),
                     secret_events=secrets[:200])
     (out / 'analysis.json').write_text(json.dumps(analysis, indent=1), encoding='utf-8')
@@ -334,7 +316,7 @@ def main():
         print(f"{len(events)} events ({analysis['prompts']} prompts, {analysis['replies']} replies, {analysis['tool_calls']} tool calls, "
               f"{analysis['pictures_opened']} pictures opened, {missing_images} missing) from {len(sessions)} session(s)")
         print(f"reasoning summaries {analysis['reasoning_summaries']} (and {analysis['reasoning_redacted']} saved without readable text)")
-        print(f"steps {steps}: a note before {noted} ({cov(noted)}), a picture looked at before {looked} ({cov(looked)})")
+        print(f"steps {steps}: a note or reasoning summary before {noted} ({cov(noted)}), a written reply before {replied} ({cov(replied)}), a picture looked at before {looked} ({cov(looked)})")
         print(f"leaks left in {len(leaks)} event(s)" + (': ' + ', '.join(sorted({x for l in leaks for x in l['found']})[:12]) if leaks else ''))
         print(f"secrets redacted in {len(secrets)} event(s)" + (': ' + ', '.join(sorted({k for s in secrets for k in s['kinds']})) if secrets else ''))
         print(f'{"TRAJECTORY OK" if not bad else "TRAJECTORY NEEDS WORK"}: {out}')

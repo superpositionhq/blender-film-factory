@@ -70,8 +70,7 @@ treatment, a critique round's notes, the shot list, the report.
   says what is wrong on screen), `shotlist.write`, `report.write`, `release`. A `critique.fix` step names its
   issue: put the issue row's id in the reason (`fixes ks-00101`).
 - Never edit, delete or reorder rows. Missed something: one `op:"log.gap"`, `--status unrecorded` row
-  saying what and when. Missed step notes are added with `tools/backfill-notes.py` (blender-film-session skill,
-  "The step").
+  saying what and when. Step notes are never added afterwards.
 - **One exception: banned names.** A row that contains a banned name is edited in place to remove it and nothing
   else, then one `op:"log.correct"` row is appended (`--param rows=[ids]`), and the commit message names the rows.
   The tool refuses a new row that holds one.
