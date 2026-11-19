@@ -80,7 +80,7 @@ the session.
 HEAD, pictures and videos as content), `history/commits.jsonl` (ordered commit hashes, parents, timestamps, messages and text diffs;
 `--no-history` leaves it out), `trajectory/` (a fresh export) and `DATASET.md` (what is
 there, with counts). It packs only when the film is valid for release, the export has no leak, the JSONL history has valid commit links and covers the saved steps, and no text file holds the account name, the organisation, a `private_names` entry of the
-machine config or a banned name. The raw recording (`<BFF_ROOT>/.recording/<slug>/`: `actions.jsonl`,
+machine config or a banned name. The packed pictures lose the text fields holding a machine path and the packed `scene.blend` its own path (Blender writes the scene's path into both). The raw recording (`<BFF_ROOT>/.recording/<slug>/`: `actions.jsonl`,
 `messages.jsonl`, `commits.jsonl`, as the hooks wrote them, with machine paths and names) is never packed. Commit author and committer identities are omitted.
 
 ## Release checks (`--release`)

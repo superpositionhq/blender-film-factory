@@ -13,6 +13,8 @@ Writes <film>/.local/pack/<name>/ and zips it (default <film>/.local/pack/<name>
                 analysis.json (paths, names and secrets rewritten)
   DATASET.md    what is in the archive, with its counts
 Not packed: the raw recording (<BFF_ROOT>/.recording/<slug>/), which is not scrubbed.
+The packed pictures lose the text fields that hold a machine path, and the packed scene file its own path (Blender
+writes the scene's path into both); the film repo's files are not changed.
 
 Checks, each printed: the film repo has no uncommitted change; tools/validate-film.py --release says VALID
 (--no-check skips it); the trajectory export has no leak; no text file holds a private or banned name.
@@ -91,6 +93,48 @@ def export_history(film, destination):
     return len(hashes)
 
 
+HOME_PATH = re.compile(rb'(?i)(?:[A-Za-z]:[\\/]+Users[\\/]+|/(?:Users|home)/)[^\\/\s]')
+
+
+def strip_png(path):
+    """Drop the text fields of a PNG that hold a machine path (Blender writes the scene's path into every picture it
+    saves, as `File`). The pixels and every other field stay; True when the file changed. The same picture always
+    gives the same bytes, so a step's picture and its copy among the opened pictures stay one file."""
+    data = path.read_bytes()
+    if not data.startswith(b'\x89PNG\r\n\x1a\n'):
+        return False
+    out, at, changed = [data[:8]], 8, False
+    while at + 12 <= len(data):
+        size = int.from_bytes(data[at:at + 4], 'big')
+        kind, body = data[at + 4:at + 8], data[at + 8:at + 8 + size]
+        if kind in (b'tEXt', b'iTXt', b'zTXt') and (kind == b'zTXt' or HOME_PATH.search(body)):
+            changed = True
+        else:
+            out.append(data[at:at + 12 + size])
+        at += 12 + size
+    if changed:
+        path.write_bytes(b''.join(out))
+    return changed
+
+
+def strip_paths(stage, film):
+    """Machine paths out of what is packed: the pictures' text fields and the scene file's own path."""
+    pictures = sum(strip_png(f) for f in sorted(stage.rglob('*.png')))
+    scenes = 0
+    exe = bffroot.blender()
+    for blend in sorted(stage.rglob('*.blend')):
+        if not exe:
+            return pictures, None
+        swaps = [f'{film}=//', f'{film.resolve()}=//', f'{bffroot.root()}=<root>', f'{Path.home()}=~']
+        r = subprocess.run([exe, '-b', '--factory-startup', '--python', str(REPO / 'tools' / 'blender' / 'strip_paths.py'),
+                            '--', str(blend), *swaps], capture_output=True, text=True, encoding='utf-8', errors='replace')
+        found = re.search(r'stripped (\d+)', r.stdout)
+        if r.returncode or not found:
+            return pictures, None
+        scenes += int(found[1])
+    return pictures, scenes
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__.split('\n')[1])
     p.add_argument('film')
@@ -163,6 +207,16 @@ def main():
     ana = {}
     if (stage / 'trajectory' / 'analysis.json').is_file():
         ana = json.loads((stage / 'trajectory' / 'analysis.json').read_text(encoding='utf-8'))
+
+    # machine paths out of the pictures and the scene file (Blender writes the scene's path into both)
+    pictures, scenes = strip_paths(stage, film)
+    if scenes is None:
+        problems.append('the scene file could not be cleared of its machine path (Blender not found, or it failed)')
+    left = [f.relative_to(stage).as_posix() for f in sorted(stage.rglob('*'))
+            if f.is_file() and f.suffix.lower() in ('.png', '.jpg', '.jpeg', '.mp4') and HOME_PATH.search(f.read_bytes())]
+    for f in left[:20]:
+        problems.append(f'{f} still holds a machine path')
+    print(f'machine paths: cleared from {pictures} picture(s) and {scenes or 0} place(s) of the scene file; {len(left)} left')
 
     # names: nothing of the machine or its owner in any text file
     account = Path.home().name
