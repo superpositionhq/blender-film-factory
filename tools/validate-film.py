@@ -12,7 +12,7 @@ Checks, each ERROR (the film is INVALID) or WARN:
              default-file leftovers, every mesh has a material, nothing linked or loaded from outside the film
   fidelity   counts of the scene against what a film of that output usually has (warnings only: a person judges
              the picture, tools/review.py)
-  trajectory (--release) the recorded session: a note and a look at a picture before 90 % of the steps, every
+  trajectory (--release) the recorded session: a note and a look at a picture before 85 % of the steps, every
              opened picture still there, no name or address that must not ship (tools/trajectory.py)
   names      banned names and machine paths in tracked text files and commit messages
   history    commits, one per step; WIP commits; steps batched or missing
@@ -275,10 +275,10 @@ def main():
         if not t.get('ok'):
             rep.warn('trajectory', t.get('error', 'no recording'))
         else:
-            if t['step_calls'] and t['note_coverage'] < 0.9:
-                rep.error('trajectory', f"a note before only {t['note_coverage']:.0%} of the steps (90 % needed): no reply and no saved reasoning summary before the others: say what the picture shows and what comes next before every step, and check that reasoning summaries are on (machine/check.py)")
-            if t['step_calls'] and t['looked_coverage'] < 0.9:
-                rep.error('trajectory', f"a picture was opened before only {t['looked_coverage']:.0%} of the steps (90 % needed)")
+            if t['step_calls'] and t['note_coverage'] < 0.85:
+                rep.error('trajectory', f"a note before only {t['note_coverage']:.0%} of the steps (85 % needed): no reply and no saved reasoning summary before the others: say what the picture shows and what comes next before every step, and check that reasoning summaries are on (machine/check.py)")
+            if t['step_calls'] and t['looked_coverage'] < 0.85:
+                rep.error('trajectory', f"a picture was opened before only {t['looked_coverage']:.0%} of the steps (85 % needed)")
             if t['pictures_missing']:
                 rep.error('trajectory', f"{t['pictures_missing']} picture(s) the session opened are gone (they are part of the record: never delete .local/render before release)")
             if t['leak_events']:

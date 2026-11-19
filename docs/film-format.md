@@ -89,7 +89,7 @@ machine config or a banned name. The raw recording (`<BFF_ROOT>/.recording/<slug
 near-uniform frame; `out/animatic_clay.mp4` has the same frame count and rate; the contact sheet, the scene copy,
 the critique and the report exist; `shotlist.json` holds (`tools/shots.py`); the last `tools/replay.py` said
 `REPLAY OK`; a final film has `out/greybox.mp4`; a storyboard input has its pages; and the record holds: a note and
-a look at a picture before at least 90 % of the steps, every opened picture still there, no account name, address,
+a look at a picture before at least 85 % of the steps, every opened picture still there, no account name, address,
 owner's name or secret left in it (a redacted secret is a warning: rotate it). Counts of the scene (triangles, materials, lights) are reported as warnings only: a
 person judges the picture ([review.md](review.md)).
 

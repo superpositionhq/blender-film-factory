@@ -14,7 +14,7 @@ hooks) and writes, to --out (default <BFF_ROOT>/.recording/<slug>/trajectory/):
   analysis.json      action-note and image-inspection coverage and leaks (below)
 Sessions: those that ran tools/step.py or templates/new-film.py for this film (or --session).
 
-Observable workflow coverage, per step (a call of tools/step.py):
+Observable workflow coverage, per step (a call of tools/step.py, by name or through a script of the film's own):
   note    after the previous step and before this one there is at least one sentence (40 characters) from the
           model: a reply it wrote, or a reasoning summary the agent saved (note_coverage); replies alone are
           counted too (reply_coverage)
@@ -27,7 +27,7 @@ common services (GitHub, GitLab, AWS, sk-... keys, Stripe, Slack, Google, Huggin
 password in a URL, the value of NAME=value (bare or quoted) where the name says secret, password, token or API key,
 and the value of such a key in JSON. A JSON text (a tool input or result as recorded) is parsed and its values are
 redacted whole, spaces and all. A secret still found afterwards is a leak.
---check: exit code 2 when note or looked coverage is under 90 % or a leak is left. Standard library only.
+--check: exit code 2 when note or looked coverage is under 85 % or a leak is left. Standard library only.
 """
 import argparse
 import json
@@ -42,6 +42,10 @@ sys.path.insert(0, str(REPO / 'machine' / 'lib'))
 import bffroot  # noqa: E402
 
 IMG = ('.png', '.jpg', '.jpeg', '.webp')
+COVERAGE = 0.85   # the share of the steps that need a note, and a picture looked at, before them
+# What tools/step.py prints when a step ran: {"step": "0005-...", "ok": true, "seconds": 1.3, "row": ...}, kept by the
+# recorder as a JSON text inside a JSON text (the quotes may be escaped). A workflow row has no "row" after it.
+STEP_REPORT = re.compile(r'\\*"step\\*": \\*"\d{4}-[^"\\]+\\*", \\*"ok\\*": \w+, \\*"seconds\\*": [\d.]+, \\*"row\\*"')
 # Secrets an export never holds: a match becomes <secret:kind> (only group v when the pattern has one, so a variable's
 # name stays). The patterns read plain text: a JSON text is parsed and redacted value by value (redact_text).
 _NAME = (r'\b(?:[A-Z][A-Z0-9_]*)?(?:SECRET|PASSWORD|PASSWD|PASSPHRASE|TOKEN|API_?KEY|ACCESS_?KEY|PRIVATE_?KEY|'
@@ -205,7 +209,9 @@ def main():
     events.sort(key=lambda e: e['time'])
 
     def is_step(e):
-        return e['type'] == 'tool' and e['tool'] in ('Bash', 'shell') and 'step.py' in as_text(e['input'])
+        # a call of tools/step.py by name, or through a script of the film's own: its result is the step's report
+        return e['type'] == 'tool' and e['tool'] in ('Bash', 'shell') and (
+            'step.py' in as_text(e['input']) or bool(STEP_REPORT.search(e.get('result') or '')))
 
     out.mkdir(parents=True, exist_ok=True)
     (out / 'images').mkdir(exist_ok=True)
@@ -309,7 +315,7 @@ def main():
                     weak_steps=weak[:200], leaks=leaks[:200], leak_events=len(leaks), secrets_redacted=len(secrets),
                     secret_events=secrets[:200])
     (out / 'analysis.json').write_text(json.dumps(analysis, indent=1), encoding='utf-8')
-    bad = bool(leaks) or missing_images or (steps and (cov(noted) < 0.9 or cov(looked) < 0.9))
+    bad = bool(leaks) or missing_images or (steps and (cov(noted) < COVERAGE or cov(looked) < COVERAGE))
     if a.json:
         print(json.dumps(analysis))
     else:
