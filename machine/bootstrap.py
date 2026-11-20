@@ -151,9 +151,7 @@ def main():
     else:
         write_json(cfg_path, want)
         note('changed' if have else 'added', f'config {cfg_path}',
-             f'root={root} github_org={want["github_org"] or "(none: --org <org>)"} agents={",".join(agents)}')
-    if not want['github_org']:
-        note('warn', 'github_org', 'not set: new-film.py makes no GitHub repo until bootstrap.py --org <org>')
+             f'root={root} github_org={want["github_org"] or "(none: films stay on this machine)"} agents={",".join(agents)}')
 
     # --- 2. folders ---------------------------------------------------------------------------------------------------
     for d in (root / 'films', root / '.recording'):

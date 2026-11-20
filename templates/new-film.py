@@ -14,8 +14,10 @@ least 5 shots unless the brief says otherwise) or `greybox` (a grey-box video: m
 blocks, staging, motion, camera and cuts only; 1280x720, 6-60 s). It writes the skeleton (film.json, Brief.md, Docs/Treatment.md, build/kit.py and
 build/mannequin.py, an empty shot list, root-anchored .gitignore, LFS for pictures, videos and .blend), the first
 workflow.jsonl row (op film.create), git on `main` with the post-commit hook (the commit recorder), the first commit,
-and the private GitHub repo <org>/film-<slug> (not pushed; <org> = --org, else the config's github_org; --no-remote
-leaves it out, and a repo that cannot be made is a warning, not an error).
+and, only when a GitHub organisation is named (--org, else the config's github_org), the private GitHub repo
+<org>/film-<slug> (not pushed). With no organisation the film stays on this machine, which is all a film that is
+packed and uploaded needs; --no-remote leaves the repo out even when one is set, and a repo that cannot be made is a
+warning, not an error.
 
 --path is required: the absolute film folder <root>/films/<slug>, written out in the command. The recording hooks
 see the command text, so $BFF_ROOT or ~ would not map the session; this call files the session under the film, and
@@ -60,15 +62,17 @@ def main():
     p.add_argument('--id-prefix', help="workflow row id prefix; default the slug's initials (ly) or its first two letters")
     p.add_argument('--reason', default='Create the film from the standard skeleton (film.json, brief, treatment, the step kit and the '
                    'mannequin kit, LFS for pictures, videos and .blend)')
-    p.add_argument('--org', help="default: the config's github_org (BFF_ORG)")
-    p.add_argument('--no-remote', action='store_true', help='make no GitHub repo (tests, offline)')
+    p.add_argument('--org', help="make a private GitHub repo in this organisation; default: the config's github_org "
+                   '(BFF_ORG), and none when that is not set')
+    p.add_argument('--no-remote', action='store_true', help='make no GitHub repo even when an organisation is set')
     a = p.parse_args()
 
     if not re.fullmatch(r'(?!.*--)[a-z0-9][a-z0-9-]*[a-z0-9]', a.slug):
         sys.exit(f"slug '{a.slug}' must be lower-case letters, digits and single hyphens (lantern-yard)")
     root, org = bffroot.root(), a.org or bffroot.org()
-    if not org and not a.no_remote:
-        sys.exit('no GitHub org: set github_org (machine/bootstrap.py --org <org>), pass --org, or --no-remote')
+    # No organisation set is the usual case (a film made and packed on this machine): the film stays local.
+    # A GitHub repo is made only when an organisation is named, by --org or the machine config.
+    local_only = a.no_remote or not org
     # Pre-flight, first: the recording hooks tie this session to the film when a tool call names the film
     # folder as an absolute path, so the call must carry --path <root>/films/<slug> literally.
     want = root / 'films' / a.slug
@@ -147,8 +151,8 @@ def main():
                  'run new-film.py again')
     sha = run(['git', '-C', str(want), 'rev-parse', '--short', 'HEAD']).stdout.strip()
 
-    remote = 'none (--no-remote)'
-    if not a.no_remote:
+    remote = 'none (--no-remote)' if a.no_remote else 'none: the film stays on this machine'
+    if not local_only:
         full = f'{org}/film-{a.slug}'
         make = f'gh repo create {full} --private; git -C "{want}" remote add origin https://github.com/{full}.git'
         if not shutil.which('gh'):

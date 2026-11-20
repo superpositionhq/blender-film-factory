@@ -10,8 +10,11 @@ A Mac or a Windows PC goes from nothing to making films in a few minutes once Bl
 | Python 3.9+ | every tool and hook here (standard library only) |
 | Blender 5.2 LTS | every film is built and rendered with it, headless (macOS: in `/Applications`; Windows: the installer's default folder; elsewhere: `bootstrap.py --blender <path>`) |
 | ffmpeg and ffprobe on PATH | videos are encoded with it; reference clips are cut into frames with it |
-| The GitHub CLI (`gh`), signed in (`gh auth login`) to an account that may create private repos in `<org>` | `new-film.py` creates `<org>/film-<slug>` |
 | A coding agent: Claude Code, or OpenAI Codex CLI, signed in | the agent that makes the film |
+
+No GitHub account is needed. Films stay on this machine and are packed with `tools/pack.py`. A team that keeps its
+films on GitHub runs `bootstrap.py --org <org>` and needs the GitHub CLI (`gh`), signed in (`gh auth login`) to an
+account that may create private repos in `<org>`: `new-film.py` then also creates `<org>/film-<slug>`.
 
 Blender runs in the background and never opens a window. EEVEE needs a GPU (any Apple Silicon Mac; a Windows PC with
 a discrete or recent integrated GPU). Without one, films render with Cycles on the CPU, far slower: use it for greybox
@@ -23,7 +26,7 @@ only.
 git clone <this repo> ~/FilmWork/blender-film-factory
 ```
 ```bash
-python3 ~/FilmWork/blender-film-factory/machine/bootstrap.py --org <org>
+python3 ~/FilmWork/blender-film-factory/machine/bootstrap.py
 ```
 ```bash
 python3 ~/FilmWork/blender-film-factory/machine/check.py

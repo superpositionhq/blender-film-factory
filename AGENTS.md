@@ -1,8 +1,8 @@
 # AGENTS.md — blender-film-factory: instructions for every session
 
 This repo sets up coding-agent sessions (Claude Code or OpenAI Codex CLI) that each make one short film in
-Blender 5.2 from a script, headless and in code (`<BFF_ROOT>/films/<slug>`, private `<org>/film-<slug>` repos, `<org>` =
-`github_org` in the machine config). Build each film step by step, saving scripts, scene states,
+Blender 5.2 from a script, headless and in code (`<BFF_ROOT>/films/<slug>`; a film stays on its machine unless
+`github_org` is set in the machine config, which adds a private `<org>/film-<slug>` repo). Build each film step by step, saving scripts, scene states,
 rendered pictures and tool results. Commit every visible change separately and keep the build replayable.
 Export the saved production history with `tools/trajectory.py`.
 `<BFF_ROOT>` is the machine root (env `BFF_ROOT`, else `root` in

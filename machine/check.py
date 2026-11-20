@@ -69,12 +69,14 @@ def main():
     for tool in ('ffmpeg', 'ffprobe'):
         t = bffroot.ffmpeg(tool)
         say('PASS' if t else 'FAIL', tool, t or 'not on PATH')
-    v = version(['gh', '--version'])
-    say('PASS' if v else 'WARN', 'gh', v or 'not installed: new-film.py makes no GitHub repo without it')
+    org = bffroot.org()
+    if org:                                    # GitHub is used only when an organisation is set
+        v = version(['gh', '--version'])
+        say('PASS' if v else 'WARN', 'gh', v or f'not installed: new-film.py cannot make {org}/film-<slug> without it')
 
     # config and root
     say('PASS' if cfg else 'FAIL', 'config', str(cfg_path) if cfg else f'{cfg_path} is missing: run machine/bootstrap.py')
-    say('PASS' if cfg.get('github_org') else 'WARN', 'github_org', cfg.get('github_org') or 'not set (bootstrap.py --org <org>)')
+    say('PASS', 'github_org', org or 'not set: films stay on this machine (no GitHub account needed)')
     for d in (root / 'films', root / '.recording'):
         say('PASS' if d.is_dir() else 'FAIL', str(d))
     say('PASS' if (bffroot.repo() / 'tools' / 'step.py').is_file() else 'FAIL', 'repo', str(bffroot.repo()))
