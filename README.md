@@ -18,13 +18,15 @@ trajectory per film; a person reviews the film and its record before it is used.
 **Before every new film, update blender-film-factory:** `git -C <BFF_ROOT>/blender-film-factory pull`, then
 `python3 <BFF_ROOT>/blender-film-factory/machine/bootstrap.py` (`python` on Windows).
 
-On a Mac or a Windows PC with git, Git LFS, Python 3.9+, Blender 5.2 LTS, ffmpeg, the GitHub CLI and a coding agent
-(Claude Code, or OpenAI Codex CLI):
+On a Mac or a Windows PC with git, Git LFS, Python 3.9+, Blender 5.2 LTS, ffmpeg and a coding agent
+(Claude Code, or OpenAI Codex CLI). No GitHub account is needed: a film is made, packed and handed over from this
+machine.
 
 1. Clone this repo into the machine root: `git clone <this repo> ~/FilmWork/blender-film-factory`.
-2. `python3 ~/FilmWork/blender-film-factory/machine/bootstrap.py --org <org>` (`<org>` = the GitHub organisation
-   or user that will own the private `film-<slug>` repos). It writes the machine config, finds Blender and ffmpeg,
-   installs the skills and, after asking, the recording hooks.
+2. `python3 ~/FilmWork/blender-film-factory/machine/bootstrap.py`. It writes the machine config, finds Blender and
+   ffmpeg, installs the skills and, after asking, the recording hooks. (Only a team that keeps its films on GitHub
+   adds `--org <org>`, the organisation or user that will own private `film-<slug>` repos, and needs the GitHub CLI
+   signed in.)
 3. `python3 ~/FilmWork/blender-film-factory/machine/check.py` until nothing says FAIL
    ([docs/new-machine.md](docs/new-machine.md)).
 4. Start the first session: in a terminal in the root (`claude`, or `codex`), one film with
@@ -34,8 +36,8 @@ On a Mac or a Windows PC with git, Git LFS, Python 3.9+, Blender 5.2 LTS, ffmpeg
 
 1. **New film**: `templates/new-film.py --input script|storyboard --output greybox|final` creates `<BFF_ROOT>/films/<slug>`:
    `film.json`, the brief and treatment pages, the step kit (`build/kit.py`) and the mannequin kit
-   (`build/mannequin.py`), the first `workflow.jsonl` row, the post-commit hook, the first commit, a private GitHub
-   repo (not pushed).
+   (`build/mannequin.py`), the first `workflow.jsonl` row, the post-commit hook, the first commit; with `--org` set, also a private
+   GitHub repo (not pushed).
 2. **Brief** (the script, word for word; storyboard pictures through `tools/storyboard.py`), the **breakdown** of
    the script into cast, places and timed beats, then the **treatment** with the object list and the shot list.
 3. **Steps**: `tools/step.py <film> "<what changes on screen>" build/NNN_name.py --op .. --target .. --reason ..`

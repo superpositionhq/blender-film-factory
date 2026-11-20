@@ -36,7 +36,7 @@ The config:
 | `repo` | this checkout; default `<root>/blender-film-factory` |
 | `blender` | the Blender 5.2 executable (bootstrap finds it, or `--blender <path>`); env `BLENDER` overrides it |
 | `ffmpeg_dir` | a folder holding `ffmpeg` and `ffprobe` when they are not on PATH (optional) |
-| `github_org` | the GitHub organisation or user that owns the private `film-<slug>` repos: `bootstrap.py --org` writes it, env `BFF_ORG` overrides it; `new-film.py` reads it |
+| `github_org` | optional, empty by default: films then stay on this machine. Set, it is the GitHub organisation or user that owns the private `film-<slug>` repos: `bootstrap.py --org` writes it, env `BFF_ORG` overrides it; `new-film.py` reads it |
 | `private_names` | optional list of more names that must not ship (a company, a domain); `tools/trajectory.py` replaces them with `<name>` in the export; env `BFF_PRIVATE_NAMES` (comma separated) adds to it |
 | `agents` | the agents bootstrap sets up: `claude`, `codex` or both |
 | `record_extra_projects` | extra top-level folders of the root the recording hooks treat as projects besides `films/<slug>` (default none) |
@@ -54,7 +54,7 @@ tool calls names.
 ## bootstrap.py
 
 ```bash
-python3 machine/bootstrap.py --org <org>
+python3 machine/bootstrap.py
 ```
 
 Idempotent; run it again after every pull. It prints one line per item (`ok`, `added`, `changed`, `warn`):
@@ -89,7 +89,7 @@ run bootstrap again after replacing that Python.
 python3 machine/check.py
 ```
 
-Changes nothing. One line per item, `PASS`, `WARN` or `FAIL`: python, git, git-lfs, Blender 5.2, ffmpeg, ffprobe, gh;
+Changes nothing. One line per item, `PASS`, `WARN` or `FAIL`: python, git, git-lfs, Blender 5.2, ffmpeg, ffprobe (and gh when a GitHub organisation is set);
 the config and the root's folders; the hook scripts against the repo's; each agent's hook entries (and Codex's trust
 entries); the skills against the repo's; the root instructions; each film's
 post-commit hook. Exit code 1 with any `FAIL`. It takes the same folder options as bootstrap.
@@ -156,5 +156,5 @@ Linux or macOS:
 sh machine/setup.sh --root "$HOME/FilmWork" --agent both
 ```
 
-Pass `--org <organization>` on first setup and `--blender <executable>` when Blender is outside its usual location.
+Pass `--blender <executable>` when Blender is outside its usual location, and `--org <organization>` only when films are to be kept on GitHub.
 Use `--agent claude` or `--agent codex` to update only one agent. These launchers install without prompting.

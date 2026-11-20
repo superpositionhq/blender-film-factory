@@ -107,7 +107,7 @@ came out wrong stays, and the next step fixes it. Never renumber or delete a ste
 - **Never push unless the person says so.**
 - When told: `git push origin main --follow-tags`, then verify `git ls-remote origin main` matches
   `git rev-parse HEAD` and `git lfs push origin main --dry-run` lists nothing left.
-- Film repos live at `<org>/film-<slug>` (private; `<org>` = `github_org` in the machine config). Never force-push.
+- A film has a remote only when `github_org` is set in the machine config: `<org>/film-<slug>` (private). With none, the film stays on this machine and there is nothing to push. Never force-push.
 
 ## The WIP auto-commit
 
