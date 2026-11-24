@@ -81,8 +81,9 @@ changes. A film session edits nothing here.
 | a released film, its history and its trajectory as one dataset archive | `tools/pack.py` |
 | workflow rows | `tools/workflow-row.py` |
 | film format and validator | [docs/film-format.md](docs/film-format.md), `tools/validate-film.py` |
+| task checks: prove a task on its start and reference scenes, score another scene, the reviewer's card | `tools/task-check.py`, `tools/task_check/`, `tools/blender/task_probe.py` ([docs/task-check.md](docs/task-check.md)) |
 
-Not here: task writing and task checks, an art style library, sound tools, a coordinator for many sessions. Where
+Not here: a skill for writing tasks (the checker is here, the rules for cutting tasks from a film are not yet), an art style library, sound tools, a coordinator for many sessions. Where
 a rule names something that is not here, do not stand in for it by hand or with another factory's tool: ask.
 
 ## Agents
