@@ -13,6 +13,7 @@ PLAIN = {
     'contact': '{a} against {b}: {field}',
     'file': 'the saved file: {field}',
     'screen': 'the rendered picture from {camera}: {field}',
+    'picture': 'the rendered picture from {camera}, with {select} as the subject: {field}',
 }
 AGG = {'first': '', 'last': ' (last row)', 'count': 'how many there are', 'any': ' (true on any)', 'all': ' (true on all)',
        'share': ' (share of rows where true)', 'distinct': ' (number of different values)', 'min': ' (lowest)',

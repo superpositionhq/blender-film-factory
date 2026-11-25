@@ -496,8 +496,135 @@ def p_screen(q):
     return rows
 
 
+def render_mask(path, frame, cam, width, subject, alone=False):
+    """A picture where the subject is white and everything else black or empty: which pixels of the frame are the
+    subject. alone=True hides everything else first, so the mask is the subject with nothing in front of it."""
+    r, sh, vs = sc.render, sc.display.shading, sc.view_settings
+    keep = (r.engine, r.film_transparent, sh.light, sh.color_type, sc.display.render_aa, vs.view_transform, vs.look,
+            r.image_settings.color_mode)
+    colors = {o.name: tuple(o.color) for o in sc.objects}
+    hidden = {o.name: o.hide_render for o in sc.objects}
+    try:
+        r.engine, r.film_transparent = 'BLENDER_WORKBENCH', True
+        sh.light, sh.color_type, sc.display.render_aa = 'FLAT', 'OBJECT', 'OFF'
+        vs.view_transform, vs.look = 'Standard', 'None'
+        r.image_settings.color_mode = 'RGBA'
+        for o in sc.objects:
+            o.color = (1, 1, 1, 1) if o in subject else (0, 0, 0, 1)
+            if alone and o not in subject and o.type in SOLID:
+                o.hide_render = True
+        render_still(path, frame, cam, width)
+    finally:
+        for o in sc.objects:
+            o.color, o.hide_render = colors[o.name], hidden[o.name]
+        (r.engine, r.film_transparent, sh.light, sh.color_type, sc.display.render_aa, vs.view_transform, vs.look,
+         r.image_settings.color_mode) = keep
+
+
+def read_picture(path):
+    """Pixels of a saved picture, top row first: an array (height, width, 4), 0..1 in display space."""
+    import numpy as np
+    img = bpy.data.images.load(path)
+    w, h = img.size
+    px = np.array(img.pixels[:], dtype=np.float32).reshape(h, w, 4)[::-1]
+    bpy.data.images.remove(img)
+    return px
+
+
+def hsv_of(rgb):
+    import numpy as np
+    mx, mn = rgb.max(-1), rgb.min(-1)
+    d = mx - mn
+    sat = np.where(mx > 1e-6, d / np.maximum(mx, 1e-6), 0.0)
+    safe = np.maximum(d, 1e-6)
+    r, g, b = rgb[..., 0], rgb[..., 1], rgb[..., 2]
+    hue = np.where(mx == r, ((g - b) / safe) % 6, np.where(mx == g, (b - r) / safe + 2, (r - g) / safe + 4)) * 60.0
+    return np.where(d > 1e-6, hue, 0.0), sat, mx
+
+
+def mean_hue(hue, sat):
+    """The average hue in degrees, each pixel counted by how coloured it is; None when nothing is coloured."""
+    import numpy as np
+    if sat.size == 0 or float(sat.sum()) < 1e-3:
+        return None
+    a = np.radians(hue)
+    return r5(math.degrees(math.atan2(float((np.sin(a) * sat).sum()), float((np.cos(a) * sat).sum()))) % 360)
+
+
+def p_picture(q):
+    """What the rendered frame looks like, in numbers: the whole frame's light and colour and, with "select", where
+    the subject sits in it and how it stands out. Positions are shares of the frame, x from the left, y from the top."""
+    import numpy as np
+    if not pic_dir:
+        raise ValueError('picture needs a pictures folder')
+    width = int(q.get('width', 480))
+    subject = set()
+    for o in pick(q['select']) if 'select' in q else []:
+        subject.update(family(o))
+    if 'select' in q and not subject:
+        return []
+    rows = []
+    for f in frames_of(q):
+        cam = camera_of(q, f)
+        stem = os.path.join(pic_dir, f'picture_{q["id"]}_{f}')
+        render_still(stem + '.png', f, cam, width, samples=int(q.get('samples', 32)))
+        px = read_picture(stem + '.png')
+        rgb = px[..., :3]
+        h, w = rgb.shape[:2]
+        lum = 0.2126 * rgb[..., 0] + 0.7152 * rgb[..., 1] + 0.0722 * rgb[..., 2]
+        hue, sat, val = hsv_of(rgb)
+        coloured = (sat > 0.2) & (val > 0.1)
+        hist = np.histogram(hue[coloured], bins=12, range=(0, 360))[0] if coloured.any() else np.zeros(12)
+        rg, yb = rgb[..., 0] - rgb[..., 1], 0.5 * (rgb[..., 0] + rgb[..., 1]) - rgb[..., 2]
+        row = dict(frame=f, camera=cam.name, luminance=r5(lum.mean()), luminance_low=r5(np.percentile(lum, 5)),
+                   luminance_high=r5(np.percentile(lum, 95)),
+                   luminance_range=r5(np.percentile(lum, 95) - np.percentile(lum, 5)),
+                   clipped_share=r5((lum > 0.98).mean()), crushed_share=r5((lum < 0.02).mean()),
+                   saturation=r5(sat.mean()), coloured_share=r5(coloured.mean()),
+                   colourfulness=r5(math.hypot(float(rg.std()), float(yb.std())) + 0.3 * math.hypot(float(rg.mean()), float(yb.mean()))),
+                   hue_groups=int((hist >= 0.08 * max(hist.sum(), 1)).sum()), hue=mean_hue(hue, sat))
+        if subject:
+            render_mask(stem + '_mask.png', f, cam, width, subject)
+            render_mask(stem + '_alone.png', f, cam, width, subject, alone=True)
+            m = read_picture(stem + '_mask.png')
+            a = read_picture(stem + '_alone.png')
+            mask = (m[..., 0] > 0.5) & (m[..., 3] > 0.5)
+            alone = (a[..., 0] > 0.5) & (a[..., 3] > 0.5)
+            row.update(in_frame=bool(mask.any()), area_share=r5(mask.mean()),
+                       visible_share=r5(mask.sum() / alone.sum()) if alone.any() else 0.0)
+            if mask.any():
+                ys, xs = np.nonzero(mask)
+                x0, x1, y0, y1 = xs.min() / w, (xs.max() + 1) / w, ys.min() / h, (ys.max() + 1) / h
+                cx, cy = (xs.mean() + 0.5) / w, (ys.mean() + 0.5) / h
+                margin = min(x0, y0, 1 - x1, 1 - y1)
+                # the surround: the subject's box grown by half its size each way, without the subject
+                gx, gy = 0.5 * (x1 - x0), 0.5 * (y1 - y0)
+                near = np.zeros_like(mask)
+                near[max(0, int((y0 - gy) * h)):min(h, int((y1 + gy) * h) + 1), max(0, int((x0 - gx) * w)):min(w, int((x1 + gx) * w) + 1)] = True
+                ring = near & ~mask
+                rest = ~mask
+                bright = lum >= np.percentile(lum, 95)
+                sh_, rh = mean_hue(hue[mask], sat[mask]), mean_hue(hue[ring], sat[ring]) if ring.any() else None
+                row.update(
+                    centre_x=r5(cx), centre_y=r5(cy), box=[r5(x0), r5(y0), r5(x1), r5(y1)], width=r5(x1 - x0), height=r5(y1 - y0),
+                    headroom=r5(y0), footroom=r5(1 - y1), edge_margin=r5(margin), touches_edge=bool(margin < 0.005),
+                    centre_offset=r5(math.hypot(cx - 0.5, cy - 0.5)),
+                    thirds_offset=r5(min(math.hypot(cx - tx, cy - ty) for tx in (1 / 3, 2 / 3) for ty in (1 / 3, 2 / 3))),
+                    silhouette_fill=r5(mask.sum() / max(1.0, (x1 - x0) * w * (y1 - y0) * h)),
+                    subject_luminance=r5(lum[mask].mean()), surround_luminance=r5(lum[ring].mean()) if ring.any() else None,
+                    background_luminance=r5(lum[rest].mean()) if rest.any() else None,
+                    separation=r5(abs(float(lum[mask].mean()) - float(lum[ring].mean()))) if ring.any() else None,
+                    subject_saturation=r5(sat[mask].mean()), surround_saturation=r5(sat[ring].mean()) if ring.any() else None,
+                    subject_hue=sh_, surround_hue=rh,
+                    hue_distance=r5(min(abs(sh_ - rh), 360 - abs(sh_ - rh))) if sh_ is not None and rh is not None else None,
+                    subject_clipped_share=r5((lum[mask] > 0.98).mean()), subject_crushed_share=r5((lum[mask] < 0.02).mean()),
+                    highlights_on_subject=r5((bright & (mask | ring)).sum() / max(1, bright.sum())))
+        rows.append(row)
+    return rows
+
+
 PROBES = dict(object=p_object, material=p_material, light=p_light, world=p_world, render=p_render, shots=p_shots,
-              framing=p_framing, motion=p_motion, contact=p_contact, file=p_file, screen=p_screen)
+              framing=p_framing, motion=p_motion, contact=p_contact, file=p_file, screen=p_screen, picture=p_picture)
 
 out = {'blender': bpy.app.version_string, 'objects': sorted(o.name for o in sc.objects), 'rows': {}, 'errors': {}, 'shots': {}}
 for q in spec.get('queries') or []:
