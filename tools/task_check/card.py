@@ -116,7 +116,12 @@ def render(task, result=None):
     L += ['## What the solver is told', '', task['instruction'].strip(), '',
           '## What the solver starts from and what a good answer looks like', '',
           f"- Start: `start.blend`, the film at step {task['seed'].get('start')}.",
-          f"- Reference: `reference.blend`, the film at step {task['seed'].get('reference')}. The solver never sees it.", '',
+          f"- Reference: `reference.blend`, the film at step {task['seed'].get('reference')}. The solver never sees it.", '']
+    pics = (result or {}).get('shots') or {}
+    if (pics.get('start') or {}).get('card') and (pics.get('reference') or {}).get('card'):
+        L += ['| Start | Reference |', '|---|---|',
+              f"| ![start](check/start/{pics['start']['card']}) | ![reference](check/reference/{pics['reference']['card']}) |", '']
+    L += [
           '## How it is scored', '',
           f'Reward = points earned, minus points lost to errors, divided by {pos} (never below 0). '
           'Solved = every required point met and no required error.', '']

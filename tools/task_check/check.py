@@ -26,6 +26,8 @@ def plan(task, with_shots=True):
         elif with_shots:
             for n, s in enumerate(i['judge']['shots'], 1):
                 shots.append({'id': f"{i['id']}_{n}", **s})
+    if with_shots:                              # one picture of the scene for the reviewer's card
+        shots.append({'id': 'card', 'width': 960, **(task.get('card') or {})})
     return queries, shots
 
 

@@ -32,6 +32,8 @@ are). They carry a `blender-film-` prefix so they install next to another factor
   stage of a final film.
 - **blender-film-final** ([SKILL.md](skills/blender-film-final/SKILL.md)): the fully rendered output.
 - **blender-film-storyboard** ([SKILL.md](skills/blender-film-storyboard/SKILL.md)): inputs with storyboard pictures.
+- **blender-film-write-tasks** ([SKILL.md](skills/blender-film-write-tasks/SKILL.md)): the tasks a film ships with,
+  written from the threads the person directed.
 
 The rules of film making live in those skills and nowhere else; this file and the briefs only point at them.
 
@@ -83,7 +85,7 @@ changes. A film session edits nothing here.
 | film format and validator | [docs/film-format.md](docs/film-format.md), `tools/validate-film.py` |
 | task checks: prove a task on its start and reference scenes, score another scene, the reviewer's card | `tools/task-check.py`, `tools/task_check/`, `tools/blender/task_probe.py` ([docs/task-check.md](docs/task-check.md)) |
 
-Not here: a skill for writing tasks (the checker is here, the rules for cutting tasks from a film are not yet), an art style library, sound tools, a coordinator for many sessions. Where
+Not here: an art style library, sound tools, a coordinator for many sessions. Where
 a rule names something that is not here, do not stand in for it by hand or with another factory's tool: ask.
 
 ## Agents

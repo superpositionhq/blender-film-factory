@@ -4,8 +4,9 @@
  "title": "The cup hovers, hides from the camera and reads as grey",
  "phase": "look",
  "kind": "correction",
- "difficulty": "easy",
- "seed": {"film": "probe-test", "start": 1, "reference": 2},
+ "difficulty": "medium",
+ "seed": {"film": "probe-test", "start": 1, "reference": 6},
+ "thread": {"slug": "shot-1-review", "directions": ["pt-00002"]},
  "instruction": "Notes from the review of shot 1.\n\n1. The cup hovers in the air above the table. It should stand on the table top, on a small saucer. Call the new object `Saucer`.\n2. The cup is a dull grey. It should be a glossy red.\n3. Shot 1 does not show the cup at all. The cup should be in frame and easy to find.\n4. The cup is too dark to read. Light it clearly.\n5. The ball slides off at full speed and stops dead. It should ease in and ease out.\n\nLeave the lamp and the table where they are. Save your work over the scene you were given.",
  "items": [
   {"id": "R01", "description": "The cup stands on the saucer or the table top: neither hovering above it nor sunk into it.", "dimension": "staging", "criterion_type": "Objective", "criterion_necessity": "Explicit", "type": "binary", "weight": 10,

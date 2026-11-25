@@ -1,11 +1,13 @@
 # Task checks
 
-A **task** is one stretch of a film's making, cut out so that another agent can be asked to do it again: the scene
-as it was before (`start.blend`), an instruction that says what is wrong or wanted, the scene after the fix that
-held (`reference.blend`), and a list of scoring points (**items**). `tools/task-check.py` proves a task on its own
+A **task** is one thread of a film's making (what a person directed, over several steps, until they called it right:
+the blender-film-write-tasks skill), cut out so that another agent can be asked to do it again: the scene as it was
+before (`start.blend`), an instruction that says what is wrong or wanted, the scene the person accepted
+(`reference.blend`), and a list of scoring points (**items**). `tools/task-check.py` proves a task on its own
 two scenes and scores any other scene against it.
 
 ```
+python3 tools/task-check.py threads <film>           # the film's task threads: directions, steps, plan, verdict
 python3 tools/task-check.py snapshot <film> <name> --start <step> --reference <step>   # the two scenes, from step checkpoints
 python3 tools/task-check.py validate <task>          # the task file alone
 python3 tools/task-check.py check <task>             # measure both scenes: VALID / INVALID / NEEDS JUDGE; writes CARD.md
@@ -14,8 +16,10 @@ python3 tools/task-check.py split <task> --out <dir> # the solver's half: the in
 python3 tools/task_check/probe_tests/run.py          # the checker's own test, on scenes it builds itself
 ```
 
-A task is a folder: `task.json`, `start.blend`, `reference.blend`, then `check/` (measurements, judge pictures,
-`result.json`) and `CARD.md` once checked. The two scenes are the truth of the task: they are stored, not rebuilt.
+A task is a folder beside the films, never inside one (`<BFF_ROOT>/tasks/<film slug>/<task name>/`): `task.json`,
+`start.blend`, `reference.blend`, then `check/` (measurements, pictures, `result.json`) and `CARD.md` once checked.
+`task.json` also names its thread (`"thread": {"slug": .., "directions": [row ids]}`), its `difficulty` (`medium` or
+`hard`) and, optionally, the frame and camera of the card's two pictures (`"card": {"frame": .., "camera": ..}`). The two scenes are the truth of the task: they are stored, not rebuilt.
 
 ## Rules of a task
 

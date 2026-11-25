@@ -21,7 +21,7 @@ review notes and final outputs separately. Do not combine a whole scene into one
 `<BFF_ROOT>` = the machine root (`machine/README.md`). "The person" is whoever started you.
 
 **Only the blender-film-factory skills (owner's rule).** Use blender-film-commit-always, blender-film-session,
-blender-film-greybox, blender-film-final and blender-film-storyboard and no other skill: never install, enable or
+blender-film-greybox, blender-film-final, blender-film-storyboard and blender-film-write-tasks and no other skill: never install, enable or
 invoke a personal, project, plugin, marketplace or agent built-in skill, even when the agent offers one, nor another
 factory's skills. Do what they do not cover by hand under these rules.
 
@@ -207,6 +207,44 @@ In this order: the record is whole and honest (a note and a look before every st
 the replay passes); the film shows the script; the film is whole (every frame renders, the format is met); the shot
 list is true; taste. No polishing loops outside the critique rounds, and no re-doing a step to get a nicer picture
 of it: the pictures are a record, not a portfolio.
+
+## Review stops and task threads
+
+**Stop for the person at the end of each stage.** Show the stage's pictures (a sheet of every shot) and wait for the
+answer before going on. The person may also direct you at any other moment.
+
+| stop | after build-order stage | what the person is shown |
+|---|---|---|
+| `layout` | 3 (the grey-box video) | blocks, cameras, cuts, timing |
+| `look` | 5 (materials; final films only) | models and materials |
+| `motion_light` | 7 (animation polish, with the lighting of stage 6) | movement and light |
+| `final` | 9 (after the last critique round) | the finished picture |
+
+A grey-box film stops at `layout`, `motion_light` and `final`. Append one `review.stop` row at each
+(`--target <stop>`, `--param sheet=<the picture shown>`). _(why: these are the moments a person's eye is asked for;
+what they change there is what a model alone got wrong)_
+
+**Task threads, opened while the film is made.** A film's tasks come out of how it was really made
+(blender-film-write-tasks), so mark them as the work happens:
+
+- **Open.** When the person's directions will clearly take several steps (always for the issues raised together at a
+  review stop; otherwise ask in one line: "This will take several steps: track it as a task?"), record the directions
+  as usual, then append a `task.open` row: `--target <thread slug>`,
+  `--param directions=["<row id>", ...]` `--param phase=<layout|look|motion_light|final>`
+  `--param start_step=<the last step done>` `--param ask="<what is wanted, as a viewer would see it>"`
+  `--param plan="<what will be different in the picture or the motion when it is done, point by point, and how each
+  point could be measured>"`. A thread opens only on the person's direction, never on your own idea and never after
+  the fact.
+- **Plan before the fix.** Write the plan before any step of the fix runs, so the check cannot lean on names, places
+  or timings the fix will invent.
+- **Work.** Every step on the thread carries `--direction <row id>` as usual.
+- **Ask for the verdict.** When the points are done, show the pictures and ask: better, the same, or worse? Record
+  the answer as a `user.direction` row like any other. "Not yet" keeps the thread open: more directions, more steps.
+- **Close.** When the person says it is right, append `task.close`: `--target <thread slug>`
+  `--param reference_step=<the last step of the fix>` `--param verdict=better`. A thread the person gave up on closes
+  with `--param verdict=dropped` and never becomes a task.
+
+After the release, write the tasks (blender-film-write-tasks) unless the brief says not to.
 
 ## Working with the person
 

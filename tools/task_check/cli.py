@@ -7,9 +7,12 @@
   python tools/task-check.py grade <task> <scene.blend> --out <dir> [--answers f.json]
                                                              score another scene: <dir>/grade.json and, once every
                                                              judge item is answered, <dir>/reward.json {"reward": 0..1}
+  python tools/task-check.py threads <film>                  the film's task threads from workflow.jsonl: directions,
+                                                             steps, plan, whether the person closed them
   python tools/task-check.py snapshot <film> <task name> --start <step> --reference <step>
-                                                             copy the two step checkpoints into <film>/Tasks/<name>/
-                                                             as self-contained start.blend and reference.blend
+                                                             copy the two step checkpoints into
+                                                             <root>/tasks/<film slug>/<name>/ (beside films/, never in
+                                                             the film) as self-contained start.blend and reference.blend
   python tools/task-check.py split <task> --out <dir>        the solver's half (task.json without items, start.blend)
 
 <task> is a folder holding task.json, start.blend and reference.blend. A judge item is answered by a file:
@@ -41,7 +44,7 @@ def write_card(task, result):
 def snapshot(film, name, start, reference):
     film = Path(film).resolve()
     exe = check.bffroot.blender()
-    out = film / 'Tasks' / name
+    out = film.parent.parent / 'tasks' / film.name / name          # <root>/tasks/<slug>/<name>: never inside the film
     out.mkdir(parents=True, exist_ok=True)
     for label, step in (('start', start), ('reference', reference)):
         hits = sorted((film / '.local' / 'checkpoints').glob(f'{int(step):04d}-*.blend'))
@@ -58,11 +61,54 @@ def snapshot(film, name, start, reference):
         print(f'{label}: step {int(step):04d} -> {dest}')
 
 
+def step_no(row):
+    step = str((row.get('params') or {}).get('step') or '')
+    return int(step[:4]) if step[:4].isdigit() else None
+
+
+def threads(film):
+    """Print the film's task threads: task.open / task.close rows, their directions and the steps that carry them."""
+    film = Path(film).resolve()
+    rows = [json.loads(line) for line in (film / 'workflow.jsonl').read_text(encoding='utf-8').splitlines() if line.strip()]
+    by_id = {r['id']: r for r in rows}
+    closes = {r['target']: r for r in rows if r.get('op') == 'task.close'}
+    opens = [r for r in rows if r.get('op') == 'task.open']
+    directions = [r for r in rows if r.get('op') == 'user.direction']
+    print(f'{film.name}: {len(directions)} direction(s), {len(opens)} thread(s) opened, {len(closes)} closed')
+    tracked = set()
+    for o in opens:
+        p = o.get('params') or {}
+        ids = p.get('directions') or []
+        ids = ids if isinstance(ids, list) else [ids]
+        tracked.update(ids)
+        # later directions given while the thread was open belong to it when a step of the thread carries them
+        steps = sorted({step_no(r) for r in rows if r.get('direction') in ids and step_no(r) is not None})
+        close = closes.get(o['target'])
+        cp = (close or {}).get('params') or {}
+        state = 'OPEN (no verdict: not a task)' if not close else f"closed, verdict {cp.get('verdict')}, reference step {cp.get('reference_step')}"
+        print(f"\n{o['target']}  [{p.get('phase')}]  {state}")
+        print(f"  start step {p.get('start_step')}; {len(steps)} step(s) acted on it: {steps}")
+        print(f"  ask:  {p.get('ask')}")
+        print(f"  plan: {p.get('plan')}")
+        for i in ids:
+            d = by_id.get(i) or {}
+            print(f"  {i} ({d.get('target')}): {(d.get('params') or {}).get('direction') or d.get('reason')}")
+    loose = [d for d in directions if d['id'] not in tracked]
+    if loose:
+        print(f'\n{len(loose)} direction(s) outside any thread (a run of them on one subject may still be a thread):')
+        for d in loose:
+            steps = sorted({step_no(r) for r in rows if r.get('direction') == d['id'] and step_no(r) is not None})
+            print(f"  {d['id']} ({d.get('target')}), steps {steps}: {(d.get('params') or {}).get('direction') or d.get('reason')}")
+    return 0
+
+
 def main(argv=None):
     args = list(sys.argv[1:] if argv is None else argv)
     if len(args) < 2:
         sys.exit(__doc__)
     cmd = args[0]
+    if cmd == 'threads':
+        return threads(args[1])
     if cmd == 'snapshot':
         snapshot(args[1], args[2], opt(args, '--start'), opt(args, '--reference'))
         return 0

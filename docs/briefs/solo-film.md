@@ -31,8 +31,10 @@ Report any required permission or technical blocker clearly.
 
 Read first, and follow: {{BFF_ROOT}}/blender-film-factory/AGENTS.md and the skills it names
 ({{BFF_ROOT}}/blender-film-factory/skills/<name>/SKILL.md): blender-film-session and blender-film-commit-always,
-the skill of your output (blender-film-greybox or blender-film-final), and blender-film-storyboard if there are
-storyboard pictures. Use no other skill.
+the skill of your output (blender-film-greybox or blender-film-final), blender-film-storyboard if there are
+storyboard pictures, and blender-film-write-tasks for the tasks after the release. Use no other skill.
+Stop and show me the pictures at the end of each stage (blender-film-session, "Review stops and task threads")
+and wait for my answer before going on.
 
 Film: {{TITLE}} ({{SLUG}} -> {{BFF_ROOT}}/films/{{SLUG}}).
 Mode {{MODE}}: NEW = your first tool call creates the film with

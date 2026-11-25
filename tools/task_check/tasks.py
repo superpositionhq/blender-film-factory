@@ -13,6 +13,9 @@ DIMENSIONS = ('completeness', 'requirement_alignment', 'staging', 'modelling', '
 PROBES = ('object', 'material', 'light', 'world', 'render', 'shots', 'framing', 'motion', 'contact', 'file', 'screen', 'picture')
 AGGS = ('first', 'last', 'count', 'any', 'all', 'share', 'distinct', 'min', 'max', 'sum', 'mean', 'median', 'range', 'delta')
 SELECTOR_KEYS = ('select', 'a', 'b')
+# a picture judge answers a plain fact; these words ask for taste, which is measured or left to a person
+TASTE = re.compile(r'\b(good|better|best|nice|nicer|appealing|beautiful|pleasing|balanced|intentional|deliberate|well[- ]\w+|'
+                   r'professional|polished|quality|aesthetic\w*|tasteful|attractive|convincing|believable|natural|right|correct)\b', re.I)
 
 
 def load(path):
@@ -60,6 +63,17 @@ def validate(task):
     for key in ('start', 'reference'):
         if not seed.get(key):
             err.append(f'seed.{key} (the step the snapshot was taken at) is missing')
+    if task.get('difficulty') not in ('medium', 'hard'):
+        err.append('difficulty is medium or hard: a task a strong agent solves in a minute is not a task')
+    thread = task.get('thread') or {}
+    if not thread.get('directions'):
+        err.append('thread.directions (the user.direction rows the thread answers) is missing: a task is a thread a person directed')
+    try:
+        span = int(seed.get('reference')) - int(seed.get('start'))
+        if span < 3:
+            warn.append(f'the thread is {span} step(s) from start to reference: under 3 is a single fix, not a thread')
+    except (TypeError, ValueError):
+        pass
     items = task.get('items') or []
     ids = [i.get('id') for i in items]
     if len(set(ids)) != len(ids):
@@ -92,6 +106,12 @@ def validate(task):
                 err.append(f'{tag}: judge.shots names at least one frame to render')
             if len(str(j.get('question') or '')) < 15:
                 err.append(f'{tag}: judge.question is one question a picture can answer')
+            for text in [str(j.get('question') or '')] + [str(v) for v in (j.get('levels') or {}).values()]:
+                hit = TASTE.search(text)
+                if hit:
+                    err.append(f'{tag}: a judge is asked a plain fact, never taste ("{hit.group(0)}" in "{text[:60]}"): '
+                               'measure it or leave it out')
+                    break
             if i.get('type') == 'gradient' and sorted((j.get('levels') or {}).keys()) != ['0', '0.25', '0.5', '0.75', '1']:
                 err.append(f'{tag}: a gradient judge item describes the five levels "1", "0.75", "0.5", "0.25", "0"')
             if i.get('weight', 0) >= 10:
