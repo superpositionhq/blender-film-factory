@@ -9,6 +9,9 @@
                                                              judge item is answered, <dir>/reward.json {"reward": 0..1}
   python tools/task-check.py threads <film>                  the film's task threads from workflow.jsonl: directions,
                                                              steps, plan, whether the person closed them
+  python tools/task-check.py moved <film> [--thread <name>] [--before <step> --after <step>] [--out <dir>] [--width 320]
+                                                             for each direction a person gave: which measurements read
+                                                             differently before and after the work (MOVED.md)
   python tools/task-check.py snapshot <film> <task name> --start <step> --reference <step>
                                                              copy the two step checkpoints into
                                                              <root>/tasks/<film slug>/<name>/ (beside films/, never in
@@ -26,7 +29,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from . import card, check, tasks
+from . import card, check, moved, tasks
 
 
 def opt(args, name):
@@ -109,6 +112,9 @@ def main(argv=None):
     cmd = args[0]
     if cmd == 'threads':
         return threads(args[1])
+    if cmd == 'moved':
+        return moved.run(args[1], out=opt(args, '--out'), thread=opt(args, '--thread'), before=opt(args, '--before'),
+                         after=opt(args, '--after'), width=int(opt(args, '--width') or 320), fresh='--fresh' in args)
     if cmd == 'snapshot':
         snapshot(args[1], args[2], opt(args, '--start'), opt(args, '--reference'))
         return 0

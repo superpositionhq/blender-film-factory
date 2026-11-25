@@ -133,6 +133,35 @@ All lengths in metres, angles in degrees. Each returns rows; `frame` or `frames`
 
 A `camera` is a name, `{"shot": k}`, or left out for the camera the timeline shows at that frame.
 
+A query with `"sweep": ["start", "mid", "end"]` runs once per shot at those moments of it (`["span"]`: over the whole
+shot); with `"each": true` it also runs once per object that has a shape, as the subject. Its rows carry `shot` and
+`at`. Tasks do not use it; `moved` does.
+
+## Which measurements a direction moved
+
+```
+python3 tools/task-check.py moved <film> [--thread <name>] [--before <step> --after <step>] [--out <dir>]
+```
+
+For every direction a person gave that steps carry, and every closed thread, it measures the scene saved just before
+the work and the scene saved after it with every probe that needs no task: objects, materials, lights, world, render,
+shots and the file, and per shot the framing, the motion and the rendered picture, whole and per object. It writes
+`MOVED.md` and `moved.json` to `<BFF_ROOT>/tasks/<slug>/moved/` (or `--out`): what switched (a yes/no, a named
+value, a row that came or went), then the numbers that moved, by field. The film is only read.
+
+It is how the checker grows from what people say. Read a direction's list this way:
+
+- **a field moved that says what the person asked**: the direction can already be checked; take the threshold from
+  these two scenes;
+- **fields moved, none of them what the person asked**: they are side effects (the spoon was turned, so its place
+  changed; the person asked that it be recognisable). A new field is needed;
+- **nothing moved**: no probe reads this change at all. A new field is needed.
+
+A field that moved is a candidate, never proof. A new field is tried the same way: add it to the probe, run `moved`
+again, and it must move for the direction it was written for; then run it on other films to see what else it moves
+for. A number counts as moved when it differs by more than 0.004 and by more than 2 % (a picture read at 320 pixels
+is not steadier than that). `contact` is left out (every pair of objects is too many) and `screen` is inside `picture`.
+
 ## Reward and verdict
 
 `reward = max(0, (weight earned by positive items + weight lost to negative items) / all positive weight)`, from 0

@@ -567,8 +567,13 @@ def p_picture(q):
     for f in frames_of(q):
         cam = camera_of(q, f)
         stem = os.path.join(pic_dir, f'picture_{q["id"]}_{f}')
-        render_still(stem + '.png', f, cam, width, samples=int(q.get('samples', 32)))
-        px = read_picture(stem + '.png')
+        key = (f, cam.name, width, int(q.get('samples', 32)))
+        still = STILLS.get(key) if q.get('reuse') else None        # a sweep looks at one frame once for every subject
+        if not still:
+            still = stem + '.png'
+            render_still(still, f, cam, width, samples=key[3])
+            STILLS[key] = still
+        px = read_picture(still)
         rgb = px[..., :3]
         h, w = rgb.shape[:2]
         lum = 0.2126 * rgb[..., 0] + 0.7152 * rgb[..., 1] + 0.0722 * rgb[..., 2]
@@ -625,6 +630,57 @@ def p_picture(q):
 
 PROBES = dict(object=p_object, material=p_material, light=p_light, world=p_world, render=p_render, shots=p_shots,
               framing=p_framing, motion=p_motion, contact=p_contact, file=p_file, screen=p_screen, picture=p_picture)
+STILLS = {}
+
+
+def in_view(ob, cam, frame):
+    """Whether any of the object's box can be in the camera's picture at that frame (a cheap test before rendering)."""
+    sc.frame_set(frame)
+    lo, hi = box(ob)
+    pts = [world_to_camera_view(sc, cam, c) for c in corners(lo, hi)]
+    front = [p for p in pts if p.z > 0]
+    if not front:
+        return False
+    if len(front) < 8:                    # the box crosses the camera's plane: it may be anywhere in the picture
+        return True
+    return (max(p.x for p in pts) >= 0 and min(p.x for p in pts) <= 1 and
+            max(p.y for p in pts) >= 0 and min(p.y for p in pts) <= 1)
+
+
+def sweep(q, fn):
+    """A query with "sweep" runs once per shot: at each moment it lists ("start", "mid", "end"), or over the whole
+    shot ("span"). With "each": true it also runs once per object that has a shape, as the subject. Every row
+    carries "shot" and "at". A film with no shots is one shot: the whole timeline through the scene camera."""
+    shots = shot_list() or [dict(shot=0, frame_start=sc.frame_start, frame_end=sc.frame_end)]
+    rows = []
+    for s in shots:
+        a, b = s['frame_start'], s['frame_end']
+        for at in q['sweep']:
+            base = {k: v for k, v in q.items() if k not in ('sweep', 'each', 'frame', 'frames')}
+            if s['shot']:
+                base['camera'] = {'shot': s['shot']}
+            if at == 'span':
+                base['frames'] = {'from': a, 'to': b}
+                frame = a
+            else:
+                frame = {'start': a, 'mid': (a + b) // 2, 'end': b}[at]
+                base['frame'] = frame
+            subjects = [None]
+            if q.get('each'):
+                subjects = [o for o in sorted(sc.objects, key=lambda o: o.name) if any(x.type in SOLID for x in family(o))]
+            for ob in subjects:
+                q2 = dict(base)
+                if ob is not None:
+                    q2['select'] = ob.name
+                    if q['probe'] == 'picture' and not in_view(ob, camera_of(q2, frame), frame):
+                        rows.append(dict(name=ob.name, shot=s['shot'], at=at, frame=frame, in_frame=False, area_share=0.0))
+                        continue
+                for row in fn(q2):
+                    row.update(shot=s['shot'], at=at)
+                    if ob is not None:
+                        row.setdefault('name', ob.name)
+                    rows.append(row)
+    return rows
 
 out = {'blender': bpy.app.version_string, 'objects': sorted(o.name for o in sc.objects), 'rows': {}, 'errors': {}, 'shots': {}}
 for q in spec.get('queries') or []:
@@ -632,7 +688,7 @@ for q in spec.get('queries') or []:
         fn = PROBES.get(q.get('probe'))
         if not fn:
             raise ValueError(f'unknown probe {q.get("probe")!r}')
-        out['rows'][q['id']] = fn(q)
+        out['rows'][q['id']] = sweep(q, fn) if q.get('sweep') else fn(q)
     except Exception as e:
         out['errors'][q['id']] = f'{type(e).__name__}: {e}'
         traceback.print_exc()
