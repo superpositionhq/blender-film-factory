@@ -91,6 +91,11 @@ name or `{"shot": k}`), one `question` a picture can answer, and for a gradient 
 The checker renders the pictures for the start, the reference and the scene being graded; the answers come from a
 file. Until they do, the verdict is NEEDS JUDGE and no `reward.json` is written.
 
+Set `BFF_JUDGE` to a command and the checker asks it instead of waiting for a file: one JSON request per judge item on
+stdin (`question`, `type`, `levels`, `pictures`), one JSON answer on stdout (`answer` 0..1, `reason`). The judge sees the
+question and the pictures only. Its reasons are kept in `result.json` and `grade.json` (`judge_reasons`). A judge that
+fails leaves the item waiting; it never becomes a guessed score (`tools/task_check/judge.py`).
+
 ### Selectors
 
 `"Cup"` or `{"name": "Cup"}`; `{"glob": "Chair_*"}`; `{"type": "LIGHT"}`; `{"new": true}` (not in the start scene);

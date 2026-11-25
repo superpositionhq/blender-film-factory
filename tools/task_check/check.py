@@ -6,7 +6,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from . import tasks, verdict
+from . import judge, tasks, verdict
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / 'machine' / 'lib'))
@@ -80,7 +80,10 @@ def check(task, answers=None):
     start = measure(start_blend, task, work / 'start', 'self')
     ref = measure(ref_blend, task, work / 'reference', start['objects'])
     errors += tasks.second_solution(task, set(start['objects']))
-    answers = answers or {}
+    answers = dict(answers or {})
+    reasons = {}
+    answers['start'], reasons['start'] = judge.ask(task, work / 'start', start['shots'], answers.get('start'))
+    answers['reference'], reasons['reference'] = judge.ask(task, work / 'reference', ref['shots'], answers.get('reference'))
     s_sc = score(task, start, start['values'], ref['values'], answers.get('start'))
     r_sc = score(task, ref, start['values'], ref['values'], answers.get('reference'))
     errors += verdict.validity(task['items'], s_sc, r_sc)
@@ -95,7 +98,7 @@ def check(task, answers=None):
         result['items'].append(dict(id=i['id'], weight=i['weight'], start=s_sc[i['id']], reference=r_sc[i['id']]))
     result.update(blender=ref['blender'], start_reward=s_reward, reference_reward=r_reward, start_objects=start['objects'],
                   start_values=start['values'], reference_values=ref['values'],
-                  shots=dict(start=start['shots'], reference=ref['shots']),
+                  shots=dict(start=start['shots'], reference=ref['shots']), judge_reasons=reasons,
                   pending_judge=sorted(set(s_pending + r_pending)),
                   verdict='VALID' if not errors and judged else 'NEEDS JUDGE' if not errors else 'INVALID')
     (work / 'result.json').write_text(json.dumps(result, indent=1), encoding='utf-8')
@@ -113,10 +116,12 @@ def grade(task, blend, out_dir, answers=None):
         raise SystemExit('the task is INVALID: it cannot grade anything')
     out_dir = Path(out_dir)
     cand = measure(blend, task, out_dir / 'candidate', base['start_objects'])
+    answers, reasons = judge.ask(task, out_dir / 'candidate', cand['shots'], answers)
     sc = score(task, cand, base['start_values'], base['reference_values'], answers)
     reward, solved, pending = verdict.reward(task['items'], sc)
     detail = dict(schema='film-task-grade/1', task=task['name'], reward=reward, solved=solved, pending_judge=pending,
-                  items=[dict(id=i['id'], weight=i['weight'], **sc[i['id']]) for i in task['items']], shots=cand['shots'])
+                  items=[dict(id=i['id'], weight=i['weight'], **sc[i['id']]) for i in task['items']], shots=cand['shots'],
+                  judge_reasons=reasons)
     (out_dir / 'grade.json').write_text(json.dumps(detail, indent=1), encoding='utf-8')
     if not pending:
         (out_dir / 'reward.json').write_text(json.dumps({'reward': reward}), encoding='utf-8')
