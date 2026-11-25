@@ -31,7 +31,11 @@ A task is a folder: `task.json`, `start.blend`, `reference.blend`, then `check/`
    takes points for the same thing.
 6. **Nothing hidden.** Every item follows from the instruction: word for word (`Explicit`) or as a consequence
    nobody could dispute (`Implicit`). A preference the instruction does not state is not scored.
-7. **Measure first.** A judge is for what only a picture can show. What decides the task (the +10 items) is measured.
+7. **Measure first, and never ask a judge about taste.** A judge item asks one plain fact about what a picture shows, a
+   fact two people would answer the same way ("is there a cup on the table", "is the face visible"). It never asks
+   whether something is good, balanced, appealing, intentional or well made: taste is scored only by measurements that
+   were tested against people's own judgements, or it is left to a person. What decides the task (the +10 items) is
+   measured.
 8. **Never ease a check to make it pass.** If the reference fails an item, the item or the task is wrong: fix that.
 
 ## task.json (`film-task/1`)
