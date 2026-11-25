@@ -10,7 +10,7 @@ PHASES = ('layout', 'look', 'motion_light', 'final')
 KINDS = ('correction', 'bug_fix', 'feature', 'change')
 DIMENSIONS = ('completeness', 'requirement_alignment', 'staging', 'modelling', 'materials', 'lighting', 'motion',
               'render_quality', 'engineering')
-PROBES = ('object', 'material', 'light', 'world', 'render', 'shots', 'framing', 'motion', 'contact', 'file', 'screen')
+PROBES = ('object', 'material', 'light', 'world', 'render', 'shots', 'framing', 'motion', 'contact', 'file', 'screen', 'picture')
 AGGS = ('first', 'last', 'count', 'any', 'all', 'share', 'distinct', 'min', 'max', 'sum', 'mean', 'median', 'range', 'delta')
 SELECTOR_KEYS = ('select', 'a', 'b')
 
